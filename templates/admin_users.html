@@ -1,0 +1,64 @@
+admin_users.html{% extends 'base.html' %}
+
+{% block content %}
+<div class="admin-panel-container">
+    <div class="sector-divider">
+        <h2>PAINEL ADMINISTRATIVO: GESTÃO DE USUÁRIOS E PERMISSÕES</h2>
+    </div>
+
+    <div class="table-card">
+        <table class="users-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>USUÁRIO</th>
+                    <th>STATUS DE APROVAÇÃO</th>
+                    <th>NÍVEL DE ACESSO</th>
+                    <th>AÇÕES</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in users %}
+                <tr>
+                    <td>#{{ u.id }}</td>
+                    <td><strong>{{ u.username }}</strong></td>
+                    <td>
+                        {% if u.is_approved %}
+                            <span class="badge badge-success">APROVADO</span>
+                        {% else %}
+                            <span class="badge badge-warning">PENDENTE DE APROVAÇÃO</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if u.is_admin %}
+                            <span class="badge badge-admin-role">ADMINISTRADOR</span>
+                        {% else %}
+                            <span class="badge badge-operator-role">OPERADOR</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if u.id != current_user.id %}
+                            <div class="action-buttons-inline">
+                                <form method="POST" action="{{ url_for('toggle_user_approval', user_id=u.id) }}">
+                                    <button type="submit" class="btn-sm {% if u.is_approved %}btn-danger-sm{% else %}btn-success-sm{% endif %}">
+                                        {% if u.is_approved %}Bloquear / Revogar{% else %}Aprovar Acesso{% endif %}
+                                    </button>
+                                </form>
+
+                                <form method="POST" action="{{ url_for('toggle_user_admin', user_id=u.id) }}">
+                                    <button type="submit" class="btn-sm btn-admin-sm">
+                                        {% if u.is_admin %}Remover Admin{% else %}Tornar Admin{% endif %}
+                                    </button>
+                                </form>
+                            </div>
+                        {% else %}
+                            <small style="color: var(--text-muted);">(Sua conta)</small>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
