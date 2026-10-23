@@ -233,6 +233,8 @@ def api_update_doca(numero):
     db.session.commit()
     return jsonify({'success': True, 'doca': doca.to_dict()})
 
+# Executa a inicialização do banco automaticamente tanto no Gunicorn quanto localmente
+init_db()
+
 if __name__ == '__main__':
-    init_db()
     app.run(host='0.0.0.0', port=5000, debug=True)
