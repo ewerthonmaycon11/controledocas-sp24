@@ -206,6 +206,23 @@ def api_get_docas():
     docas = Doca.query.order_by(Doca.numero.asc()).all()
     return jsonify([d.to_dict() for d in docas])
 
+
+@app.route('/criar-admin-forçado')
+def criar_admin_forcado():
+    # Remove qualquer admin anterior para evitar duplicados ou conflitos
+    User.query.filter_by(username='admin').delete()
+    db.session.commit()
+    
+    # Gera o hash exato e compatível com a versão atual do Werkzeug instalada no Render
+    novo_hash = generate_password_hash('admin')
+    
+    admin = User(username='admin', password_hash=novo_hash, is_admin=True, is_approved=True)
+    db.session.add(admin)
+    db.session.commit()
+    
+    return "Admin recriado com sucesso! Tente fazer login agora na página /login"
+
+
 @app.route('/api/doca/<int:numero>/update', methods=['POST'])
 @login_required
 def api_update_doca(numero):
