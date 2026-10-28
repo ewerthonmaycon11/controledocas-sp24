@@ -4,16 +4,17 @@ from flask import Flask, render_template, request, redirect, url_for, flash, jso
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
-from sqlalchemy import inspect, text
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'chave-secreta-docas-2026-neon')
 
+# Configuração do Banco de Dados com fallback para o seu link do Neon
 DATABASE_URL = os.environ.get('DATABASE_URL') or 'postgresql://neondb_owner:npg_5pCBLb2VHoKa@ep-wandering-night-b5dj5kku-pooler.c-7.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require'
 
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
+# Garante o uso do driver psycopg 3 compatível com qualquer versão do Python no Render
 if DATABASE_URL.startswith("postgresql://") and not "+psycopg" in DATABASE_URL:
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
 
@@ -24,28 +25,24 @@ db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
+# --- MODELOS DO BANCO DE DADOS ---
+
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     is_admin = db.Column(db.Boolean, default=False)
-    is_approved = db.Column(db.Boolean, default=False)
+    is_approved = db.Column(db.Boolean, default=False)  # Status de aprovação pelo Admin
 
 class Doca(db.Model):
     __tablename__ = 'docas'
     id = db.Column(db.Integer, primary_key=True)
     numero = db.Column(db.Integer, unique=True, nullable=False)
-    tipo = db.Column(db.String(10), nullable=False)
-    status = db.Column(db.String(20), default='LIVRE')
-    
-    nome = db.Column(db.String(100), nullable=True, default='')
-    regiao = db.Column(db.String(100), nullable=True, default='')
+    tipo = db.Column(db.String(10), nullable=False) # 'HUB' (1-16) ou 'SOC' (17-40)
+    status = db.Column(db.String(20), default='LIVRE') # 'LIVRE' ou 'OCUPADA'
     placa = db.Column(db.String(20), nullable=True, default='')
-    chegada = db.Column(db.String(20), nullable=True, default='')
-    eta = db.Column(db.String(20), nullable=True, default='')
-    cpt = db.Column(db.String(50), nullable=True, default='')
-    
+    destino = db.Column(db.String(100), nullable=True, default='')
     ultima_atualizacao = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def to_dict(self):
@@ -54,38 +51,22 @@ class Doca(db.Model):
             'numero': self.numero,
             'tipo': self.tipo,
             'status': self.status,
-            'nome': self.nome or '',
-            'regiao': self.regiao or '',
             'placa': self.placa or '',
-            'chegada': self.chegada or '',
-            'eta': self.eta or '',
-            'cpt': self.cpt or '',
+            'destino': self.destino or '',
             'ultima_atualizacao': self.ultima_atualizacao.strftime('%H:%M:%S') if self.ultima_atualizacao else ''
         }
 
 @login_manager.user_loader
 def load_user(user_id):
-    return db.session.get(User, int(user_id))
+    return User.query.get(int(user_id))
+
+# --- INICIALIZAÇÃO DO BANCO DE DADOS ---
 
 def init_db():
     with app.app_context():
         db.create_all()
         
-        inspector = inspect(db.engine)
-        if inspector.has_table("docas"):
-            columns = [c['name'] for c in inspector.get_columns("docas")]
-            with db.engine.begin() as conn:
-                if 'nome' not in columns:
-                    conn.execute(text("ALTER TABLE docas ADD COLUMN nome VARCHAR(100) DEFAULT ''"))
-                if 'regiao' not in columns:
-                    conn.execute(text("ALTER TABLE docas ADD COLUMN regiao VARCHAR(100) DEFAULT ''"))
-                if 'chegada' not in columns:
-                    conn.execute(text("ALTER TABLE docas ADD COLUMN chegada VARCHAR(20) DEFAULT ''"))
-                if 'eta' not in columns:
-                    conn.execute(text("ALTER TABLE docas ADD COLUMN eta VARCHAR(20) DEFAULT ''"))
-                if 'cpt' not in columns:
-                    conn.execute(text("ALTER TABLE docas ADD COLUMN cpt VARCHAR(50) DEFAULT ''"))
-
+        # Cria o Admin mestre padrão (admin / admin) pré-aprovado
         admin_user = User.query.filter_by(username='admin').first()
         if not admin_user:
             hashed_pwd = generate_password_hash('admin')
@@ -93,12 +74,15 @@ def init_db():
             db.session.add(admin)
             db.session.commit()
 
+        # Popula as 40 docas se não existirem
         if Doca.query.count() == 0:
             for num in range(1, 41):
                 tipo_doca = 'HUB' if 1 <= num <= 16 else 'SOC'
-                doca = Doca(numero=num, tipo=tipo_doca, status='LIVRE', placa='', regiao='')
+                doca = Doca(numero=num, tipo=tipo_doca, status='LIVRE', placa='', destino='')
                 db.session.add(doca)
             db.session.commit()
+
+# --- ROTAS PRINCIPAIS ---
 
 @app.route('/')
 def index():
@@ -171,6 +155,8 @@ def logout():
     flash('Sessão encerrada.', 'info')
     return redirect(url_for('index'))
 
+# --- PAINEL ADMINISTRATIVO DE GESTÃO DE USUÁRIOS ---
+
 @app.route('/admin/users')
 @login_required
 def admin_users():
@@ -213,46 +199,58 @@ def toggle_user_admin(user_id):
     flash(f'Permissões de Admin de {user.username} alteradas.', 'success')
     return redirect(url_for('admin_users'))
 
+# --- API ENDPOINTS ---
+
 @app.route('/api/docas', methods=['GET'])
 def api_get_docas():
     docas = Doca.query.order_by(Doca.numero.asc()).all()
     return jsonify([d.to_dict() for d in docas])
 
+
+@app.route('/criar-admin-forçado')
+def criar_admin_forcado():
+    # Remove qualquer admin anterior para evitar duplicados ou conflitos
+    User.query.filter_by(username='admin').delete()
+    db.session.commit()
+    
+    # Gera o hash exato e compatível com a versão atual do Werkzeug instalada no Render
+    novo_hash = generate_password_hash('admin')
+    
+    admin = User(username='admin', password_hash=novo_hash, is_admin=True, is_approved=True)
+    db.session.add(admin)
+    db.session.commit()
+    
+    return "Admin recriado com sucesso! Tente fazer login agora na página /login"
+
+
 @app.route('/api/doca/<int:numero>/update', methods=['POST'])
 @login_required
 def api_update_doca(numero):
+    if not current_user.is_approved:
+        return jsonify({'success': False, 'message': 'Conta não aprovada'}), 403
+
     doca = Doca.query.filter_by(numero=numero).first_or_404()
     data = request.get_json() or {}
     
     novo_status = data.get('status')
+    nova_placa = data.get('placa', '').strip().upper()
+    novo_destino = data.get('destino', '').strip().upper()
     
     if novo_status in ['LIVRE', 'OCUPADA']:
         doca.status = novo_status
         if novo_status == 'LIVRE':
-            doca.nome = ''
-            doca.regiao = ''
             doca.placa = ''
-            doca.chegada = ''
-            doca.eta = ''
-            doca.cpt = ''
+            doca.destino = ''
         elif novo_status == 'OCUPADA':
-            val_nome = data.get('nome', '')
-            val_regiao = data.get('regiao', '')
-            val_placa = data.get('placa', '')
-            val_chegada = data.get('chegada', '')
-            val_eta = data.get('eta', '')
-            val_cpt = data.get('cpt', '')
-
-            doca.nome = val_nome.strip().upper() if isinstance(val_nome, str) else str(val_nome).strip().upper()
-            doca.regiao = val_regiao.strip().upper() if isinstance(val_regiao, str) else str(val_regiao).strip().upper()
-            doca.placa = val_placa.strip().upper() if isinstance(val_placa, str) else str(val_placa).strip().upper()
-            doca.chegada = val_chegada.strip() if isinstance(val_chegada, str) else str(val_chegada).strip()
-            doca.eta = val_eta.strip() if isinstance(val_eta, str) else str(val_eta).strip()
-            doca.cpt = val_cpt.strip().upper() if isinstance(val_cpt, str) else str(val_cpt).strip().upper()
+            if nova_placa:
+                doca.placa = nova_placa
+            if novo_destino:
+                doca.destino = novo_destino
             
     db.session.commit()
     return jsonify({'success': True, 'doca': doca.to_dict()})
 
+# Executa a inicialização do banco automaticamente tanto no Gunicorn quanto localmente
 init_db()
 
 if __name__ == '__main__':
