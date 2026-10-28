@@ -144,6 +144,7 @@ async function alterarStatusComDados(numeroDoca, novoStatus, dados) {
     }
 }
 
+// Função atualizada para incluir o cronômetro também nas atualizações AJAX/Polling
 function atualizarCardNaTela(doca) {
     const card = document.getElementById(`doca-card-${doca.numero}`);
     if (!card) return;
@@ -258,7 +259,6 @@ function atualizarCronometrosCPT() {
             return;
         }
 
-        // Tenta extrair formato de hora (ex: "14:30" ou "14:30:00")
         const match = cptStr.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
         if (!match) {
             timerEl.innerText = `⏳ CPT: ${cptStr}`;
@@ -273,7 +273,6 @@ function atualizarCronometrosCPT() {
         const alvo = new Date();
         alvo.setHours(cptHora, cptMinuto, cptSegundo, 0);
 
-        // Se o horário do CPT já passou hoje, assume que é para o dia seguinte ou exibe zerado/expirado
         const diffMs = alvo - agora;
 
         if (diffMs <= 0) {
