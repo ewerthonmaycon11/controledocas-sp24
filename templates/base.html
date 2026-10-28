@@ -8,47 +8,72 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <header class="topbar">
-        <div class="logo-container">
-            <span class="logo-icon">☬</span>
-            <a href="{{ url_for('index') }}" style="text-decoration: none; color: inherit;">
-                <span class="logo-text">CONTROLE<b>DOCAS SP24</b> <small>PRO</small></span>
+    <!-- Menu Lateral (Sidebar) -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h3>PAINEL DE NAVEGAÇÃO</h3>
+            <button id="close-sidebar" class="btn-close-sidebar">✕</button>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="{{ url_for('index') }}" class="nav-item">
+                📊 Monitor de Docas
             </a>
-        </div>
-        <div class="user-status">
             {% if current_user.is_authenticated %}
-                {% if current_user.is_admin %}
-                    <span class="badge-admin">ADMINISTRADOR</span>
-                    <a href="{{ url_for('admin_users') }}" class="btn-login" style="background-color: var(--hub-color); color: #fff;">Gerenciar Usuários</a>
+            <a href="{{ url_for('historico_page') }}" class="nav-item">
+                📅 Histórico de Operações
+            </a>
+            {% if current_user.is_admin %}
+            <a href="{{ url_for('admin_users') }}" class="nav-item">
+                👥 Gestão de Usuários
+            </a>
+            {% endif %}
+            {% endif %}
+        </nav>
+    </aside>
+
+    <div class="main-wrapper">
+        <header class="topbar">
+            <div class="logo-container">
+                <button id="open-sidebar" class="btn-toggle-sidebar">☰</button>
+                <span class="logo-icon">🚛</span>
+                <a href="{{ url_for('index') }}" style="text-decoration: none; color: inherit;">
+                    <span class="logo-text">PÁTIO<b>DOCAS</b> <small>PRO</small></span>
+                </a>
+            </div>
+            <div class="user-status">
+                {% if current_user.is_authenticated %}
+                    {% if current_user.is_admin %}
+                        <span class="badge-admin">ADMINISTRADOR</span>
+                    {% else %}
+                        <span class="badge-viewer" style="background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border-color: rgba(16, 185, 129, 0.4);">OPERADOR</span>
+                    {% endif %}
+                    <span class="username">{{ current_user.username }}</span>
+                    <a href="{{ url_for('logout') }}" class="btn-logout">Sair</a>
                 {% else %}
-                    <span class="badge-viewer" style="background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border-color: rgba(16, 185, 129, 0.4);">OPERADOR</span>
+                    <span class="badge-viewer">MODO VISUALIZAÇÃO</span>
+                    <a href="{{ url_for('login') }}" class="btn-login">Acesso / Entrar</a>
                 {% endif %}
-                <span class="username">{{ current_user.username }}</span>
-                <a href="{{ url_for('logout') }}" class="btn-logout">Sair</a>
-            {% else %}
-                <span class="badge-viewer">MODO VISUALIZAÇÃO</span>
-                <a href="{{ url_for('login') }}" class="btn-login">Acesso / Entrar</a>
-            {% endif %}
-        </div>
-    </header>
+            </div>
+        </header>
 
-    <main class="container">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                <div class="flash-container">
-                    {% for category, message in messages %}
-                        <div class="alert alert-{{ category }}">{{ message }}</div>
-                    {% endfor %}
-                </div>
-            {% endif %}
-        {% endwith %}
+        <main class="container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-container">
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
 
-        {% block content %}{% endblock %}
-    </main>
+            {% block content %}{% endblock %}
+        </main>
 
-    <footer class="footer">
-        <p>SICP &copy; 2026 - Controle de Pátio Logístico | Conectado a Neon PostgreSQL</p>
-    </footer>
+        <footer class="footer">
+            <p>SICP &copy; 2026 - Controle de Pátio Logístico | Conectado a Neon PostgreSQL</p>
+        </footer>
+    </div>
 
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
