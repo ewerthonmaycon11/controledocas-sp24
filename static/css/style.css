@@ -213,7 +213,7 @@ body {
     gap: 1.75rem;
 }
 
-/* Card Individual da Doca (Estilo Template Texturizado Profissional) */
+/* Card Individual da Doca */
 .dock-card {
     background: linear-gradient(160deg, #162238 0%, #0d1522 100%);
     border: 1px solid var(--border-color);
@@ -233,14 +233,8 @@ body {
     box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.8), 0 0 20px rgba(14, 165, 233, 0.1);
 }
 
-/* Estados da Borda do Card */
-.dock-card.livre {
-    border-top: 3px solid var(--green-neon);
-}
-
-.dock-card.ocupada {
-    border-top: 3px solid var(--red-neon);
-}
+.dock-card.livre { border-top: 3px solid var(--green-neon); }
+.dock-card.ocupada { border-top: 3px solid var(--red-neon); }
 
 /* Luz Indicadora Neon/LED Superior */
 .light-container {
@@ -436,7 +430,7 @@ body {
     font-weight: 500;
 }
 
-/* Formulário de Login */
+/* Formulário de Login / Registro */
 .login-wrapper {
     display: flex;
     justify-content: center;
@@ -511,7 +505,6 @@ body {
     background: rgba(9, 13, 22, 0.5);
 }
 
-/* Estilo para o campo de Destino na Doca Ocupada */
 .destination-label {
     font-size: 0.6rem;
     color: var(--text-muted);
@@ -531,6 +524,7 @@ body {
     margin-top: 2px;
     text-transform: uppercase;
 }
+
 /* Tabela do Painel Administrativo */
 .table-card {
     background: linear-gradient(160deg, #162238 0%, #0d1522 100%);
