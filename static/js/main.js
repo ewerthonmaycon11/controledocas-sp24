@@ -28,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (plateDisplay) {
                 const modoDetalhado = plateDisplay.getAttribute('data-detalhes') === 'true';
                 
+                // Pega os dados direto dos atributos atualizados do elemento
                 const placa = plateDisplay.getAttribute('data-placa') || '';
                 const regiao = plateDisplay.getAttribute('data-regiao') || '';
                 const cpt = plateDisplay.getAttribute('data-cpt') || '';
@@ -36,6 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const eta = plateDisplay.getAttribute('data-eta') || '';
 
                 if (!modoDetalhado) {
+                    // Mostra todos os detalhes completos
                     plateDisplay.innerHTML = `
                         <span class="plate-label">NOME:</span>
                         <span class="plate-value" style="font-size: 0.95rem; padding: 4px 8px;">${nome || 'NÃO INFORMADO'}</span>
@@ -56,6 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     `;
                     plateDisplay.setAttribute('data-detalhes', 'true');
                 } else {
+                    // Volta para a visualização padrão (resumida)
                     plateDisplay.innerHTML = `
                         <span class="plate-label">PLACA:</span>
                         <span class="plate-value">${placa || 'NÃO INFORMADA'}</span>
@@ -144,7 +147,7 @@ async function alterarStatusComDados(numeroDoca, novoStatus, dados) {
     }
 }
 
-// Função atualizada para incluir o cronômetro também nas atualizações AJAX/Polling
+// Função para injetar a alteração instantaneamente no DOM salvando os atributos de dados
 function atualizarCardNaTela(doca) {
     const card = document.getElementById(`doca-card-${doca.numero}`);
     if (!card) return;
@@ -160,6 +163,7 @@ function atualizarCardNaTela(doca) {
 
     const plateDisplay = document.getElementById(`plate-display-${doca.numero}`);
     if (plateDisplay) {
+        // Salva rigidamente todos os dados nos atributos do elemento para o clique recuperar perfeitamente
         plateDisplay.setAttribute('data-placa', doca.placa || '');
         plateDisplay.setAttribute('data-regiao', doca.regiao || '');
         plateDisplay.setAttribute('data-cpt', doca.cpt || '');
@@ -167,19 +171,42 @@ function atualizarCardNaTela(doca) {
         plateDisplay.setAttribute('data-chegada', doca.chegada || '');
         plateDisplay.setAttribute('data-eta', doca.eta || '');
 
+        const modoDetalhado = plateDisplay.getAttribute('data-detalhes') === 'true';
+
         if (doca.status === 'OCUPADA') {
-            plateDisplay.innerHTML = `
-                <span class="plate-label">PLACA:</span>
-                <span class="plate-value">${doca.placa || 'NÃO INFORMADA'}</span>
-                <span class="destination-label" style="margin-top: 6px;">REGIÃO:</span>
-                <span class="destination-value">${doca.regiao || 'NÃO INFORMADA'}</span>
-                <span class="destination-label" style="margin-top: 6px;">CPT:</span>
-                <span class="destination-value">${doca.cpt || 'NÃO INFORMADO'}</span>
-                <div style="margin-top: 6px; font-size: 0.7rem; font-weight: 700; color: #f43f5e;" id="cpt-timer-${doca.numero}" data-cpt="${doca.cpt || ''}">
-                    ⏳ CPT: Calculando...
-                </div>
-                <small style="color: var(--text-muted); margin-top: 6px; font-size: 0.65rem; text-align: center; cursor: pointer;">🔍 Clique para ver detalhes</small>
-            `;
+            if (modoDetalhado) {
+                plateDisplay.innerHTML = `
+                    <span class="plate-label">NOME:</span>
+                    <span class="plate-value" style="font-size: 0.95rem; padding: 4px 8px;">${doca.nome || 'NÃO INFORMADO'}</span>
+                    <span class="plate-label" style="margin-top: 4px;">PLACA:</span>
+                    <span class="plate-value">${doca.placa || 'NÃO INFORMADA'}</span>
+                    <span class="destination-label" style="margin-top: 4px;">REGIÃO:</span>
+                    <span class="destination-value">${doca.regiao || 'NÃO INFORMADA'}</span>
+                    <span class="destination-label" style="margin-top: 4px;">CHEGADA:</span>
+                    <span class="destination-value">${doca.chegada || 'NÃO INFORMADA'}</span>
+                    <span class="destination-label" style="margin-top: 4px;">ETA:</span>
+                    <span class="destination-value">${doca.eta || 'NÃO INFORMADA'}</span>
+                    <span class="destination-label" style="margin-top: 4px;">CPT:</span>
+                    <span class="destination-value">${doca.cpt || 'NÃO INFORMADO'}</span>
+                    <div style="margin-top: 6px; font-size: 0.7rem; font-weight: 700; color: #f43f5e;" id="cpt-timer-${doca.numero}" data-cpt="${doca.cpt || ''}">
+                        ⏳ CPT: Calculando...
+                    </div>
+                    <small style="color: var(--accent-blue); margin-top: 6px; font-size: 0.65rem; text-align: center; cursor: pointer;">🔍 Clique para recolher</small>
+                `;
+            } else {
+                plateDisplay.innerHTML = `
+                    <span class="plate-label">PLACA:</span>
+                    <span class="plate-value">${doca.placa || 'NÃO INFORMADA'}</span>
+                    <span class="destination-label" style="margin-top: 6px;">REGIÃO:</span>
+                    <span class="destination-value">${doca.regiao || 'NÃO INFORMADA'}</span>
+                    <span class="destination-label" style="margin-top: 6px;">CPT:</span>
+                    <span class="destination-value">${doca.cpt || 'NÃO INFORMADO'}</span>
+                    <div style="margin-top: 6px; font-size: 0.7rem; font-weight: 700; color: #f43f5e;" id="cpt-timer-${doca.numero}" data-cpt="${doca.cpt || ''}">
+                        ⏳ CPT: Calculando...
+                    </div>
+                    <small style="color: var(--text-muted); margin-top: 6px; font-size: 0.65rem; text-align: center; cursor: pointer;">🔍 Clique para ver detalhes</small>
+                `;
+            }
         } else {
             plateDisplay.innerHTML = `<span class="plate-placeholder">LIVRE PARA CARGAMENTO</span>`;
             plateDisplay.removeAttribute('data-detalhes');
@@ -233,8 +260,21 @@ async function fetchDocasStatus() {
             if (doca.status === 'OCUPADA') ocupadas++;
 
             const card = document.getElementById(`doca-card-${doca.numero}`);
-            if (card && card.getAttribute('data-status') !== doca.status) {
-                atualizarCardNaTela(doca);
+            if (card) {
+                // Atualiza os atributos de dados mesmo se o card já estiver ocupado para manter a memória limpa
+                const plateDisplay = document.getElementById(`plate-display-${doca.numero}`);
+                if (plateDisplay) {
+                    plateDisplay.setAttribute('data-placa', doca.placa || '');
+                    plateDisplay.setAttribute('data-regiao', doca.regiao || '');
+                    plateDisplay.setAttribute('data-cpt', doca.cpt || '');
+                    plateDisplay.setAttribute('data-nome', doca.nome || '');
+                    plateDisplay.setAttribute('data-chegada', doca.chegada || '');
+                    plateDisplay.setAttribute('data-eta', doca.eta || '');
+                }
+
+                if (card.getAttribute('data-status') !== doca.status) {
+                    atualizarCardNaTela(doca);
+                }
             }
         });
 
