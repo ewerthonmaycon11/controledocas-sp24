@@ -2,7 +2,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     // Event listener global para os cliques nos cards das docas
     document.body.addEventListener('click', (e) => {
-        // Se clicou em um input ou botão dentro do formulário, deixa interagir normalmente
         if (e.target.closest('input') || e.target.closest('button')) {
             return;
         }
@@ -50,6 +49,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span class="destination-value">${eta || 'NÃO INFORMADA'}</span>
                         <span class="destination-label" style="margin-top: 4px;">CPT:</span>
                         <span class="destination-value">${cpt || 'NÃO INFORMADO'}</span>
+                        <div style="margin-top: 6px; font-size: 0.7rem; font-weight: 700; color: #f43f5e;" id="cpt-timer-${numero}" data-cpt="${cpt}">
+                            ⏳ CPT: Calculando...
+                        </div>
                         <small style="color: var(--accent-blue); margin-top: 6px; font-size: 0.65rem; text-align: center; cursor: pointer;">🔍 Clique para recolher</small>
                     `;
                     plateDisplay.setAttribute('data-detalhes', 'true');
@@ -61,6 +63,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span class="destination-value">${regiao || 'NÃO INFORMADA'}</span>
                         <span class="destination-label" style="margin-top: 6px;">CPT:</span>
                         <span class="destination-value">${cpt || 'NÃO INFORMADO'}</span>
+                        <div style="margin-top: 6px; font-size: 0.7rem; font-weight: 700; color: #f43f5e;" id="cpt-timer-${numero}" data-cpt="${cpt}">
+                            ⏳ CPT: Calculando...
+                        </div>
                         <small style="color: var(--text-muted); margin-top: 6px; font-size: 0.65rem; text-align: center; cursor: pointer;">🔍 Clique para ver detalhes</small>
                     `;
                     plateDisplay.setAttribute('data-detalhes', 'false');
@@ -70,16 +75,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Eventos específicos para Botões de Ação (Atribuir, Cancelar, Liberar)
+    // Eventos específicos para Botões de Ação
     document.body.addEventListener('click', (e) => {
-        // Botão Fechar / Cancelar (X)
         if (e.target.classList.contains('action-btn-cancel')) {
             const numero = e.target.getAttribute('data-numero');
             const form = document.getElementById(`form-${numero}`);
             if (form) form.style.display = 'none';
         }
 
-        // Botão de Atribuir Veículo
         if (e.target.classList.contains('action-btn-occupy')) {
             const numero = e.target.getAttribute('data-numero');
             
@@ -106,15 +109,17 @@ document.addEventListener('DOMContentLoaded', () => {
             alterarStatusComDados(numero, 'OCUPADA', { nome, regiao, placa, chegada, eta, cpt });
         }
 
-        // Botão de Liberar Doca
         if (e.target.classList.contains('action-btn-release')) {
             const numero = e.target.getAttribute('data-numero');
             alterarStatusComDados(numero, 'LIVRE', {});
         }
     });
 
-    // Polling contínuo a cada 3 segundos para sincronizar com outros usuários
+    // Polling a cada 3 segundos para sincronizar status com o servidor
     setInterval(fetchDocasStatus, 3000);
+
+    // Atualiza os cronômetros CPT a cada 1 segundo em tempo real
+    setInterval(atualizarCronometrosCPT, 1000);
 });
 
 async function alterarStatusComDados(numeroDoca, novoStatus, dados) {
@@ -128,9 +133,8 @@ async function alterarStatusComDados(numeroDoca, novoStatus, dados) {
         if (response.ok) {
             const resultado = await response.json();
             if (resultado.success) {
-                // Atualiza a interface instantaneamente via AJAX sem refresh da página!
                 atualizarCardNaTela(resultado.doca);
-                fetchDocasStatus(); // Atualiza contadores globais
+                fetchDocasStatus();
             }
         } else {
             alert('Erro ao atualizar a doca. Verifique sua sessão de login.');
@@ -140,7 +144,6 @@ async function alterarStatusComDados(numeroDoca, novoStatus, dados) {
     }
 }
 
-// Função para injetar a alteração instantaneamente no DOM da página atual
 function atualizarCardNaTela(doca) {
     const card = document.getElementById(`doca-card-${doca.numero}`);
     if (!card) return;
@@ -171,6 +174,9 @@ function atualizarCardNaTela(doca) {
                 <span class="destination-value">${doca.regiao || 'NÃO INFORMADA'}</span>
                 <span class="destination-label" style="margin-top: 6px;">CPT:</span>
                 <span class="destination-value">${doca.cpt || 'NÃO INFORMADO'}</span>
+                <div style="margin-top: 6px; font-size: 0.7rem; font-weight: 700; color: #f43f5e;" id="cpt-timer-${doca.numero}" data-cpt="${doca.cpt || ''}">
+                    ⏳ CPT: Calculando...
+                </div>
                 <small style="color: var(--text-muted); margin-top: 6px; font-size: 0.65rem; text-align: center; cursor: pointer;">🔍 Clique para ver detalhes</small>
             `;
         } else {
@@ -179,7 +185,6 @@ function atualizarCardNaTela(doca) {
         }
     }
 
-    // Atualiza os controles do admin (botão liberar vs formulário de atribuição)
     const adminControls = document.getElementById(`admin-controls-${doca.numero}`);
     const temPermissao = adminControls && (adminControls.innerHTML.trim() !== '');
 
@@ -226,7 +231,6 @@ async function fetchDocasStatus() {
             if (doca.status === 'LIVRE') livres++;
             if (doca.status === 'OCUPADA') ocupadas++;
 
-            // Atualiza os cards em segundo plano caso outro usuário tenha alterado
             const card = document.getElementById(`doca-card-${doca.numero}`);
             if (card && card.getAttribute('data-status') !== doca.status) {
                 atualizarCardNaTela(doca);
@@ -241,4 +245,50 @@ async function fetchDocasStatus() {
     } catch (err) {
         console.error('Erro no polling:', err);
     }
+}
+
+// Função que calcula e atualiza o cronômetro decrescente para cada CPT informado
+function atualizarCronometrosCPT() {
+    const timers = document.querySelectorAll('[id^="cpt-timer-"]');
+    
+    timers.forEach(timerEl => {
+        const cptStr = timerEl.getAttribute('data-cpt');
+        if (!cptStr || cptStr.trim() === '' || cptStr.includes('NÃO')) {
+            timerEl.innerText = '⏳ CPT: Não Informado';
+            return;
+        }
+
+        // Tenta extrair formato de hora (ex: "14:30" ou "14:30:00")
+        const match = cptStr.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+        if (!match) {
+            timerEl.innerText = `⏳ CPT: ${cptStr}`;
+            return;
+        }
+
+        const agora = new Date();
+        const cptHora = parseInt(match[1], 10);
+        const cptMinuto = parseInt(match[2], 10);
+        const cptSegundo = match[3] ? parseInt(match[3], 10) : 0;
+
+        const alvo = new Date();
+        alvo.setHours(cptHora, cptMinuto, cptSegundo, 0);
+
+        // Se o horário do CPT já passou hoje, assume que é para o dia seguinte ou exibe zerado/expirado
+        const diffMs = alvo - agora;
+
+        if (diffMs <= 0) {
+            timerEl.innerHTML = `<span style="color: #f43f5e; font-weight: 800;">⚠️ CPT VENCIDO / EXPIRADO</span>`;
+            return;
+        }
+
+        const horas = Math.floor(diffMs / (1000 * 60 * 60));
+        const minutos = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+        const segundos = Math.floor((diffMs % (1000 * 60)) / 1000);
+
+        const hFormatado = String(horas).padStart(2, '0');
+        const mFormatado = String(minutos).padStart(2, '0');
+        const sFormatado = String(segundos).padStart(2, '0');
+
+        timerEl.innerHTML = `<span style="color: #f43f5e; font-weight: 900; letter-spacing: 1px;">⏳ RESTANTE: ${hFormatado}:${mFormatado}:${sFormatado}</span>`;
+    });
 }
