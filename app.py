@@ -157,15 +157,15 @@ def index():
 @login_required
 def historico_page():
     limpar_historico_antigo()
-    data_sel = request.args.get('data', datetime.utcnow().strftime('%Y-%m-%d'))
+    data_sel = request.args.get('data', (datetime.utcnow() - timedelta(hours=3)).strftime('%Y-%m-%d'))
     
     try:
         data_obj = datetime.strptime(data_sel, '%Y-%m-%d')
     except ValueError:
-        data_obj = datetime.utcnow()
+        data_obj = datetime.utcnow() - timedelta(hours=3)
 
-    inicio_dia = datetime(data_obj.year, data_obj.month, data_obj.day, 0, 0, 0)
-    fim_dia = datetime(data_obj.year, data_obj.month, data_obj.day, 23, 59, 59)
+    inicio_dia = datetime(data_obj.year, data_obj.month, data_obj.day, 0, 0, 0) + timedelta(hours=3)
+    fim_dia = datetime(data_obj.year, data_obj.month, data_obj.day, 23, 59, 59) + timedelta(hours=3)
 
     registros = HistoricoDoca.query.filter(
         HistoricoDoca.data_registro >= inicio_dia,
@@ -178,14 +178,14 @@ def historico_page():
 @login_required
 def exportar_historico(formato):
     limpar_historico_antigo()
-    data_sel = request.args.get('data', datetime.utcnow().strftime('%Y-%m-%d'))
+    data_sel = request.args.get('data', (datetime.utcnow() - timedelta(hours=3)).strftime('%Y-%m-%d'))
     try:
         data_obj = datetime.strptime(data_sel, '%Y-%m-%d')
     except ValueError:
-        data_obj = datetime.utcnow()
+        data_obj = datetime.utcnow() - timedelta(hours=3)
 
-    inicio_dia = datetime(data_obj.year, data_obj.month, data_obj.day, 0, 0, 0)
-    fim_dia = datetime(data_obj.year, data_obj.month, data_obj.day, 23, 59, 59)
+    inicio_dia = datetime(data_obj.year, data_obj.month, data_obj.day, 0, 0, 0) + timedelta(hours=3)
+    fim_dia = datetime(data_obj.year, data_obj.month, data_obj.day, 23, 59, 59) + timedelta(hours=3)
 
     registros = HistoricoDoca.query.filter(
         HistoricoDoca.data_registro >= inicio_dia,
@@ -288,7 +288,7 @@ def register():
         flash('Cadastro realizado com sucesso! Aguarde a aprovação do Administrador para acessar.', 'info')
         return redirect(url_for('login'))
         
-    return render_template('register.html')
+    return register_template('register.html') if 'register_template' in globals() else render_template('register.html')
 
 @app.route('/logout')
 @login_required
@@ -351,7 +351,9 @@ def api_update_doca(numero):
     data = request.get_json() or {}
     
     novo_status = data.get('status')
-    horario_agora = datetime.utcnow().strftime('%H:%M:%S')
+    
+    # Ajusta o horário considerando o fuso horário do Brasil (UTC-3)
+    horario_agora = (datetime.utcnow() - timedelta(hours=3)).strftime('%H:%M:%S')
 
     if novo_status in ['LIVRE', 'OCUPADA']:
         if novo_status == 'LIVRE' and doca.status == 'OCUPADA':
