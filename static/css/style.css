@@ -590,3 +590,87 @@ body {
 
 .alert-warning { background-color: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); color: #fde68a; }
 .alert-info { background-color: rgba(14, 165, 233, 0.15); border: 1px solid rgba(14, 165, 233, 0.4); color: #7dd3fc; }
+
+/* Estilos do Menu Lateral (Sidebar) */
+.btn-toggle-sidebar {
+    background: transparent;
+    border: none;
+    color: var(--text-main);
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background 0.2s;
+}
+
+.btn-toggle-sidebar:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.sidebar {
+    position: fixed;
+    top: 0;
+    left: -280px;
+    width: 280px;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(15px);
+    border-right: 1px solid var(--border-color);
+    z-index: 1000;
+    transition: left 0.3s ease;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar.active {
+    left: 0;
+}
+
+.sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.sidebar-header h3 {
+    font-size: 0.9rem;
+    color: var(--accent-blue);
+    font-weight: 800;
+    letter-spacing: 1px;
+}
+
+.btn-close-sidebar {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.2rem;
+    cursor: pointer;
+}
+
+.sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.nav-item {
+    color: var(--text-main);
+    text-decoration: none;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-color);
+    transition: all 0.2s;
+}
+
+.nav-item:hover {
+    background: var(--accent-blue);
+    color: #0f172a;
+    box-shadow: 0 0 15px rgba(14, 165, 233, 0.4);
+}
