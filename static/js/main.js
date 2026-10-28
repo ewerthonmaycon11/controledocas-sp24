@@ -1,5 +1,18 @@
 // Atualização em tempo real e controle dinâmico do Pátio Docas
 document.addEventListener('DOMContentLoaded', () => {
+    // Menu Lateral (Sidebar)
+    const openSidebarBtn = document.getElementById('open-sidebar');
+    const closeSidebarBtn = document.getElementById('close-sidebar');
+    const sidebar = document.getElementById('sidebar');
+
+    if (openSidebarBtn && sidebar) {
+        openSidebarBtn.addEventListener('click', () => sidebar.classList.add('active'));
+    }
+
+    if (closeSidebarBtn && sidebar) {
+        closeSidebarBtn.addEventListener('click', () => sidebar.classList.remove('active'));
+    }
+
     // Event listener global para os cliques nos cards das docas
     document.body.addEventListener('click', (e) => {
         if (e.target.closest('input') || e.target.closest('button')) {
@@ -28,7 +41,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (plateDisplay) {
                 const modoDetalhado = plateDisplay.getAttribute('data-detalhes') === 'true';
                 
-                // Pega os dados direto dos atributos atualizados do elemento
                 const placa = plateDisplay.getAttribute('data-placa') || '';
                 const regiao = plateDisplay.getAttribute('data-regiao') || '';
                 const cpt = plateDisplay.getAttribute('data-cpt') || '';
@@ -37,7 +49,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const eta = plateDisplay.getAttribute('data-eta') || '';
 
                 if (!modoDetalhado) {
-                    // Mostra todos os detalhes completos
                     plateDisplay.innerHTML = `
                         <span class="plate-label">NOME:</span>
                         <span class="plate-value" style="font-size: 0.95rem; padding: 4px 8px;">${nome || 'NÃO INFORMADO'}</span>
@@ -61,12 +72,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     `;
                     plateDisplay.setAttribute('data-detalhes', 'true');
                 } else {
-                    // Volta para a visualização padrão (resumida)
                     plateDisplay.innerHTML = `
                         <span class="plate-label">PLACA:</span>
                         <span class="plate-value">${placa || 'NÃO INFORMADA'}</span>
                         <span class="destination-label" style="margin-top: 6px;">REGIÃO:</span>
-                        <span class="destination-value">${regiao || 'NÃO INFORMADA'}</span>
+                        <span class="destination-value">${regiao || 'NÃO INFORMADO'}</span>
                         <span class="destination-label" style="margin-top: 6px;">CPT:</span>
                         <span class="destination-value">${cpt || 'NÃO INFORMADO'}</span>
                         <div style="margin-top: 6px; font-size: 0.7rem; font-weight: 700; color: #f43f5e;" id="cpt-timer-${numero}" data-cpt="${cpt}">
@@ -156,7 +166,6 @@ async function alterarStatusComDados(numeroDoca, novoStatus, dados) {
     }
 }
 
-// Função para injetar a alteração instantaneamente no DOM salvando os atributos de dados
 function atualizarCardNaTela(doca) {
     const card = document.getElementById(`doca-card-${doca.numero}`);
     if (!card) return;
@@ -172,7 +181,6 @@ function atualizarCardNaTela(doca) {
 
     const plateDisplay = document.getElementById(`plate-display-${doca.numero}`);
     if (plateDisplay) {
-        // Salva rigidamente todos os dados nos atributos do elemento para o clique recuperar perfeitamente
         plateDisplay.setAttribute('data-placa', doca.placa || '');
         plateDisplay.setAttribute('data-regiao', doca.regiao || '');
         plateDisplay.setAttribute('data-cpt', doca.cpt || '');
@@ -210,7 +218,7 @@ function atualizarCardNaTela(doca) {
                     <span class="plate-label">PLACA:</span>
                     <span class="plate-value">${doca.placa || 'NÃO INFORMADA'}</span>
                     <span class="destination-label" style="margin-top: 6px;">REGIÃO:</span>
-                    <span class="destination-value">${doca.regiao || 'NÃO INFORMADA'}</span>
+                    <span class="destination-value">${doca.regiao || 'NÃO INFORMADO'}</span>
                     <span class="destination-label" style="margin-top: 6px;">CPT:</span>
                     <span class="destination-value">${doca.cpt || 'NÃO INFORMADO'}</span>
                     <div style="margin-top: 6px; font-size: 0.7rem; font-weight: 700; color: #f43f5e;" id="cpt-timer-${doca.numero}" data-cpt="${doca.cpt || ''}">
@@ -302,7 +310,6 @@ async function fetchDocasStatus() {
     }
 }
 
-// Cronômetro CPT (Decrescente - Vermelho)
 function atualizarCronometrosCPT() {
     const timers = document.querySelectorAll('[id^="cpt-timer-"]');
     
@@ -346,7 +353,6 @@ function atualizarCronometrosCPT() {
     });
 }
 
-// Cronômetro de Chegada (Crescente - Verde)
 function atualizarCronometrosChegada() {
     const timers = document.querySelectorAll('[id^="chegada-timer-"]');
     
