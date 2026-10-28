@@ -32,7 +32,7 @@
 
 <section class="dock-grid" id="grid-hub">
     {% for doca in docas if doca.tipo == 'HUB' %}
-    <div class="dock-card {{ 'livre' if doca.status == 'LIVRE' else 'ocupada' }}" id="doca-card-{{ doca.numero }}" data-numero="{{ doca.numero }}">
+    <div class="dock-card {{ 'livre' if doca.status == 'LIVRE' else 'ocupada' }}" id="doca-card-{{ doca.numero }}" data-numero="{{ doca.numero }}" data-status="{{ doca.status }}">
         <div class="light-container">
             <div class="light-fixture"></div>
             <div class="status-light {{ 'livre' if doca.status == 'LIVRE' else 'ocupada' }}" id="light-{{ doca.numero }}"></div>
@@ -52,26 +52,36 @@
                 {% if doca.status == 'OCUPADA' %}
                     <span class="plate-label">PLACA:</span>
                     <span class="plate-value">{{ doca.placa if doca.placa else 'NÃO INFORMADA' }}</span>
-                    <span class="destination-label" style="margin-top: 6px;">DESTINO:</span>
-                    <span class="destination-value" id="dest-val-{{ doca.numero }}">{{ doca.destino if doca.destino else 'NÃO INFORMADO' }}</span>
+                    <span class="destination-label" style="margin-top: 6px;">REGIÃO:</span>
+                    <span class="destination-value">{{ doca.regiao if doca.regiao else 'NÃO INFORMADO' }}</span>
+                    <span class="destination-label" style="margin-top: 6px;">CPT:</span>
+                    <span class="destination-value">{{ doca.cpt if doca.cpt else 'NÃO INFORMADO' }}</span>
+                    <small style="color: var(--text-muted); margin-top: 6px; font-size: 0.65rem; text-align: center; cursor: pointer;">🔍 Clique para ver detalhes</small>
                 {% else %}
                     <span class="plate-placeholder">LIVRE PARA CARGAMENTO</span>
                 {% endif %}
             </div>
 
-            {% if current_user.is_authenticated %}
-                <div class="admin-controls">
+            <div class="admin-controls">
+                {% if current_user.is_authenticated %}
                     {% if doca.status == 'LIVRE' %}
-                        <div class="plate-input-group">
-                            <input type="text" id="input-placa-{{ doca.numero }}" class="input-plate" placeholder="PLACA (ABC-1D23)" maxlength="10">
-                            <input type="text" id="input-dest-{{ doca.numero }}" class="input-plate" placeholder="DESTINO (EX: FILIAL SP)" maxlength="50">
-                            <button type="button" class="action-btn-occupy" data-numero="{{ doca.numero }}">Ocupar Doca</button>
+                        <div class="plate-input-group form-atribuicao" id="form-{{ doca.numero }}" style="display: none; margin-top: 8px;">
+                            <input type="text" id="input-nome-{{ doca.numero }}" class="input-plate" placeholder="NOME" maxlength="100">
+                            <input type="text" id="input-regiao-{{ doca.numero }}" class="input-plate" placeholder="REGIÃO" maxlength="100" style="margin-top: 6px;">
+                            <input type="text" id="input-placa-{{ doca.numero }}" class="input-plate" placeholder="PLACA (ABC-1D23)" maxlength="10" style="margin-top: 6px;">
+                            <input type="text" id="input-chegada-{{ doca.numero }}" class="input-plate" placeholder="CHEGADA" maxlength="20" style="margin-top: 6px;">
+                            <input type="text" id="input-eta-{{ doca.numero }}" class="input-plate" placeholder="ETA" maxlength="20" style="margin-top: 6px;">
+                            <input type="text" id="input-cpt-{{ doca.numero }}" class="input-plate" placeholder="CPT" maxlength="50" style="margin-top: 6px;">
+                            <div style="display: flex; gap: 4px; margin-top: 8px;">
+                                <button type="button" class="btn-action action-btn-occupy" data-numero="{{ doca.numero }}" style="flex: 1;">Atribuir</button>
+                                <button type="button" class="btn-action action-btn-cancel" data-numero="{{ doca.numero }}" style="background: var(--red-neon); color: #fff; width: 40px;">X</button>
+                            </div>
                         </div>
                     {% else %}
-                        <button type="button" class="action-btn-release" data-numero="{{ doca.numero }}">Liberar Doca</button>
+                        <button type="button" class="btn-action action-btn-release" data-numero="{{ doca.numero }}" style="margin-top: 8px;">Liberar Doca</button>
                     {% endif %}
-                </div>
-            {% endif %}
+                {% endif %}
+            </div>
         </div>
 
         <div class="dock-footer">
@@ -88,7 +98,7 @@
 
 <section class="dock-grid" id="grid-soc">
     {% for doca in docas if doca.tipo == 'SOC' %}
-    <div class="dock-card {{ 'livre' if doca.status == 'LIVRE' else 'ocupada' }}" id="doca-card-{{ doca.numero }}" data-numero="{{ doca.numero }}">
+    <div class="dock-card {{ 'livre' if doca.status == 'LIVRE' else 'ocupada' }}" id="doca-card-{{ doca.numero }}" data-numero="{{ doca.numero }}" data-status="{{ doca.status }}">
         <div class="light-container">
             <div class="light-fixture"></div>
             <div class="status-light {{ 'livre' if doca.status == 'LIVRE' else 'ocupada' }}" id="light-{{ doca.numero }}"></div>
@@ -96,7 +106,7 @@
 
         <div class="dock-header">
             <span class="dock-tag soc">SOC</span>
-            <h3 class="dock-title">{{ doca.numero }}</h3>
+            <h3 class="dock-title">DOCA {{ doca.numero }}</h3>
         </div>
 
         <div class="dock-body">
@@ -108,26 +118,36 @@
                 {% if doca.status == 'OCUPADA' %}
                     <span class="plate-label">PLACA:</span>
                     <span class="plate-value">{{ doca.placa if doca.placa else 'NÃO INFORMADA' }}</span>
-                    <span class="destination-label" style="margin-top: 6px;">DESTINO:</span>
-                    <span class="destination-value" id="dest-val-{{ doca.numero }}">{{ doca.destino if doca.destino else 'NÃO INFORMADO' }}</span>
+                    <span class="destination-label" style="margin-top: 6px;">REGIÃO:</span>
+                    <span class="destination-value">{{ doca.regiao if doca.regiao else 'NÃO INFORMADO' }}</span>
+                    <span class="destination-label" style="margin-top: 6px;">CPT:</span>
+                    <span class="destination-value">{{ doca.cpt if doca.cpt else 'NÃO INFORMADO' }}</span>
+                    <small style="color: var(--text-muted); margin-top: 6px; font-size: 0.65rem; text-align: center; cursor: pointer;">🔍 Clique para ver detalhes</small>
                 {% else %}
                     <span class="plate-placeholder">LIVRE PARA CARGAMENTO</span>
                 {% endif %}
             </div>
 
-            {% if current_user.is_authenticated %}
-                <div class="admin-controls">
+            <div class="admin-controls">
+                {% if current_user.is_authenticated %}
                     {% if doca.status == 'LIVRE' %}
-                        <div class="plate-input-group">
-                            <input type="text" id="input-placa-{{ doca.numero }}" class="input-plate" placeholder="PLACA (ABC-1D23)" maxlength="10">
-                            <input type="text" id="input-dest-{{ doca.numero }}" class="input-plate" placeholder="DESTINO (EX: FILIAL SP)" maxlength="50">
-                            <button type="button" class="action-btn-occupy" data-numero="{{ doca.numero }}">Ocupar Doca</button>
+                        <div class="plate-input-group form-atribuicao" id="form-{{ doca.numero }}" style="display: none; margin-top: 8px;">
+                            <input type="text" id="input-nome-{{ doca.numero }}" class="input-plate" placeholder="NOME" maxlength="100">
+                            <input type="text" id="input-regiao-{{ doca.numero }}" class="input-plate" placeholder="REGIÃO" maxlength="100" style="margin-top: 6px;">
+                            <input type="text" id="input-placa-{{ doca.numero }}" class="input-plate" placeholder="PLACA (ABC-1D23)" maxlength="10" style="margin-top: 6px;">
+                            <input type="text" id="input-chegada-{{ doca.numero }}" class="input-plate" placeholder="CHEGADA" maxlength="20" style="margin-top: 6px;">
+                            <input type="text" id="input-eta-{{ doca.numero }}" class="input-plate" placeholder="ETA" maxlength="20" style="margin-top: 6px;">
+                            <input type="text" id="input-cpt-{{ doca.numero }}" class="input-plate" placeholder="CPT" maxlength="50" style="margin-top: 6px;">
+                            <div style="display: flex; gap: 4px; margin-top: 8px;">
+                                <button type="button" class="btn-action action-btn-occupy" data-numero="{{ doca.numero }}" style="flex: 1;">Atribuir</button>
+                                <button type="button" class="btn-action action-btn-cancel" data-numero="{{ doca.numero }}" style="background: var(--red-neon); color: #fff; width: 40px;">X</button>
+                            </div>
                         </div>
                     {% else %}
-                        <button type="button" class="action-btn-release" data-numero="{{ doca.numero }}">Liberar Doca</button>
+                        <button type="button" class="btn-action action-btn-release" data-numero="{{ doca.numero }}" style="margin-top: 8px;">Liberar Doca</button>
                     {% endif %}
-                </div>
-            {% endif %}
+                {% endif %}
+            </div>
         </div>
 
         <div class="dock-footer">
@@ -136,161 +156,4 @@
     </div>
     {% endfor %}
 </section>
-
-<!-- Script para gerenciar cliques e atualização via AJAX -->
-<script>
-    document.addEventListener('DOMContentLoaded', () => {
-        // Event listener para os botões de ocupar e liberar
-        document.body.addEventListener('click', (e) => {
-            if (e.target.classList.contains('action-btn-occupy')) {
-                const numero = e.target.getAttribute('data-numero');
-                const placaInput = document.getElementById(`input-placa-${numero}`);
-                const destInput = document.getElementById(`input-dest-${numero}`);
-                
-                const placa = placaInput ? placaInput.value.trim() : '';
-                const destino = destInput ? destInput.value.trim() : '';
-
-                if (!placa) {
-                    alert('Por favor, informe a placa do veículo.');
-                    placaInput.focus();
-                    return;
-                }
-
-                alterarStatusComDados(numero, 'OCUPADA', placa, destino);
-            }
-            if (e.target.classList.contains('action-btn-release')) {
-                const numero = e.target.getAttribute('data-numero');
-                alterarStatusComDados(numero, 'LIVRE', '', '');
-            }
-        });
-
-        // Polling de atualização automática a cada 3 segundos
-        setInterval(fetchDocasStatus, 3000);
-    });
-
-    async function alterarStatusComDados(numeroDoca, novoStatus, placa, destino) {
-        try {
-            const response = await fetch(`/api/doca/${numeroDoca}/update`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: novoStatus, placa: placa, destino: destino })
-            });
-
-            if (response.ok) {
-                fetchDocasStatus();
-            } else {
-                alert('Erro ao atualizar a doca. Verifique sua sessão de admin.');
-            }
-        } catch (err) {
-            console.error('Erro de conexão:', err);
-        }
-    }
-
-    async function fetchDocasStatus() {
-        try {
-            const response = await fetch('/api/docas');
-            if (!response.ok) return;
-
-            const docas = await response.json();
-            let livres = 0;
-            let ocupadas = 0;
-
-            docas.forEach(doca => {
-                if (doca.status === 'LIVRE') livres++;
-                if (doca.status === 'OCUPADA') ocupadas++;
-
-                const card = document.getElementById(`doca-card-${doca.numero}`);
-                if (!card) return;
-
-                card.className = `dock-card ${doca.status.toLowerCase()}`;
-
-                const light = document.getElementById(`light-${doca.numero}`);
-                if (light) light.className = `status-light ${doca.status.toLowerCase()}`;
-
-                const statusText = document.getElementById(`status-text-${doca.numero}`);
-                if (statusText) statusText.innerText = doca.status;
-
-                const plateDisplay = document.getElementById(`plate-display-${doca.numero}`);
-                if (plateDisplay) {
-                    if (doca.status === 'OCUPADA') {
-                        // Mantém a placa E o destino renderizados corretamente a cada atualização
-                        plateDisplay.innerHTML = `
-                            <span class="plate-label">PLACA:</span>
-                            <span class="plate-value">${doca.placa ? doca.placa : 'NÃO INFORMADA'}</span>
-                            <span class="destination-label" style="margin-top: 6px;">DESTINO:</span>
-                            <span class="destination-value">${doca.destino ? doca.destino : 'NÃO INFORMADO'}</span>
-                        `;
-                    } else {
-                        plateDisplay.innerHTML = `<span class="plate-placeholder">LIVRE PARA CARGAMENTO</span>`;
-                    }
-                }
-
-                const timeEl = document.getElementById(`time-${doca.numero}`);
-                if (timeEl) timeEl.innerText = doca.ultima_atualizacao;
-            });
-
-            const livresEl = document.getElementById('stat-livres');
-            const ocupadasEl = document.getElementById('stat-ocupadas');
-            if (livresEl) livresEl.innerText = livres;
-            if (ocupadasEl) ocupadasEl.innerText = ocupadas;
-
-        } catch (err) {
-            console.error('Erro no polling:', err);
-        }
-    }
-</script>
-    }
-
-    async function fetchDocasStatus() {
-        try {
-            const response = await fetch('/api/docas');
-            if (!response.ok) return;
-
-            const docas = await response.json();
-            let livres = 0;
-            let ocupadas = 0;
-
-            docas.forEach(doca => {
-                if (doca.status === 'LIVRE') livres++;
-                if (doca.status === 'OCUPADA') ocupadas++;
-
-                const card = document.getElementById(`doca-card-${doca.numero}`);
-                if (!card) return;
-
-                card.className = `dock-card ${doca.status.toLowerCase()}`;
-
-                const light = document.getElementById(`light-${doca.numero}`);
-                if (light) light.className = `status-light ${doca.status.toLowerCase()}`;
-
-                const statusText = document.getElementById(`status-text-${doca.numero}`);
-                if (statusText) statusText.innerText = doca.status;
-
-                const plateDisplay = document.getElementById(`plate-display-${doca.numero}`);
-                if (plateDisplay) {
-                    if (doca.status === 'OCUPADA') {
-                        plateDisplay.innerHTML = `
-                            <span class="plate-label">PLACA:</span>
-                            <span class="plate-value">${doca.placa ? doca.placa : 'NÃO INFORMADA'}</span>
-                            <span class="destination-label" style="margin-top: 6px;">DESTINO:</span>
-                            <span class="destination-value">${doca.destino ? doca.destino : 'NÃO INFORMADO'}</span>
-                        `;
-                    } else {
-                        plateDisplay.innerHTML = `<span class="plate-placeholder">LIVRE PARA CARGAMENTO</span>`;
-                    }
-                }
-
-                const timeEl = document.getElementById(`time-${doca.numero}`);
-                if (timeEl) timeEl.innerText = doca.ultima_atualizacao;
-            });
-
-            const livresEl = document.getElementById('stat-livres');
-            const ocupadasEl = document.getElementById('stat-ocupadas');
-            if (livresEl) livresEl.innerText = livres;
-            if (ocupadasEl) ocupadasEl.innerText = ocupadas;
-
-        } catch (err) {
-            console.error('Erro no polling:', err);
-        }
-    }
-</script>
 {% endblock %}
