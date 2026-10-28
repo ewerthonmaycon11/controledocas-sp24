@@ -1,6 +1,7 @@
 import os
-from datetime import datetime
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from datetime import datetime, timedelta
+from io import BytesIO
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -63,9 +64,43 @@ class Doca(db.Model):
             'ultima_atualizacao': self.ultima_atualizacao.strftime('%H:%M:%S') if self.ultima_atualizacao else ''
         }
 
+class HistoricoDoca(db.Model):
+    __tablename__ = 'historico_docas'
+    id = db.Column(db.Integer, primary_key=True)
+    doca_numero = db.Column(db.Integer, nullable=False)
+    tipo = db.Column(db.String(10), nullable=False)
+    nome = db.Column(db.String(100), nullable=True, default='')
+    regiao = db.Column(db.String(100), nullable=True, default='')
+    placa = db.Column(db.String(20), nullable=True, default='')
+    chegada = db.Column(db.String(20), nullable=True, default='')
+    eta = db.Column(db.String(20), nullable=True, default='')
+    cpt = db.Column(db.String(50), nullable=True, default='')
+    horario_saida = db.Column(db.String(20), nullable=True, default='')
+    data_registro = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'doca_numero': self.doca_numero,
+            'tipo': self.tipo,
+            'nome': self.nome or '',
+            'regiao': self.regiao or '',
+            'placa': self.placa or '',
+            'chegada': self.chegada or '',
+            'eta': self.eta or '',
+            'cpt': self.cpt or '',
+            'horario_saida': self.horario_saida or '',
+            'data_registro': self.data_registro.strftime('%d/%m/%Y %H:%M:%S') if self.data_registro else ''
+        }
+
 @login_manager.user_loader
 def load_user(user_id):
     return db.session.get(User, int(user_id))
+
+def limpar_historico_antigo():
+    limite = datetime.utcnow() - timedelta(days=2)
+    HistoricoDoca.query.filter(HistoricoDoca.data_registro < limite).delete()
+    db.session.commit()
 
 def init_db():
     with app.app_context():
@@ -117,6 +152,97 @@ def index():
         ocupadas=ocupadas_count,
         livres=livres_count
     )
+
+@app.route('/historico')
+@login_required
+def historico_page():
+    limpar_historico_antigo()
+    data_sel = request.args.get('data', datetime.utcnow().strftime('%Y-%m-%d'))
+    
+    try:
+        data_obj = datetime.strptime(data_sel, '%Y-%m-%d')
+    except ValueError:
+        data_obj = datetime.utcnow()
+
+    inicio_dia = datetime(data_obj.year, data_obj.month, data_obj.day, 0, 0, 0)
+    fim_dia = datetime(data_obj.year, data_obj.month, data_obj.day, 23, 59, 59)
+
+    registros = HistoricoDoca.query.filter(
+        HistoricoDoca.data_registro >= inicio_dia,
+        HistoricoDoca.data_registro <= fim_dia
+    ).order_by(HistoricoDoca.data_registro.desc()).all()
+
+    return render_template('historico.html', registros=registros, data_selecionada=data_sel)
+
+@app.route('/historico/exportar/<formato>')
+@login_required
+def exportar_historico(formato):
+    limpar_historico_antigo()
+    data_sel = request.args.get('data', datetime.utcnow().strftime('%Y-%m-%d'))
+    try:
+        data_obj = datetime.strptime(data_sel, '%Y-%m-%d')
+    except ValueError:
+        data_obj = datetime.utcnow()
+
+    inicio_dia = datetime(data_obj.year, data_obj.month, data_obj.day, 0, 0, 0)
+    fim_dia = datetime(data_obj.year, data_obj.month, data_obj.day, 23, 59, 59)
+
+    registros = HistoricoDoca.query.filter(
+        HistoricoDoca.data_registro >= inicio_dia,
+        HistoricoDoca.data_registro <= fim_dia
+    ).order_by(HistoricoDoca.data_registro.asc()).all()
+
+    filename = f"historico_docas_{data_sel}.{formato}"
+
+    if formato == 'txt':
+        conteudo = f"=== HISTÓRICO DE DOCAS - {data_sel} ===\n\n"
+        for r in registros:
+            conteudo += (
+                f"DOCA: {r.doca_numero} ({r.tipo})\n"
+                f"PLACA: {r.placa or 'NÃO INFORMADA'} | NOME: {r.nome or 'NÃO INFORMADO'}\n"
+                f"REGIÃO: {r.regiao or 'NÃO INFORMADA'} | CPT: {r.cpt or 'NÃO INFORMADO'}\n"
+                f"CHEGADA: {r.chegada or 'NÃO INFORMADA'} | ETA: {r.eta or 'NÃO INFORMADO'}\n"
+                f"HORÁRIO SAÍDA: {r.horario_saida or 'NÃO INFORMADO'}\n"
+                f"REGISTRADO EM: {r.data_registro.strftime('%d/%m/%Y %H:%M:%S')}\n"
+                f"--------------------------------------------------\n"
+            )
+        buffer = BytesIO()
+        buffer.write(conteudo.encode('utf-8'))
+        buffer.seek(0)
+        return send_file(buffer, as_attachment=True, download_name=filename, mimetype='text/plain')
+
+    elif formato == 'pdf':
+        from reportlab.lib.pagesizes import letter
+        from reportlab.pdfgen import canvas
+
+        buffer = BytesIO()
+        p = canvas.Canvas(buffer, pagesize=letter)
+        y = 750
+        p.setFont("Helvetica-Bold", 14)
+        p.drawString(50, y, f"Relatorio de Historico de Docas - {data_sel}")
+        y -= 30
+        p.setFont("Helvetica", 10)
+
+        for r in registros:
+            if y < 80:
+                p.showPage()
+                y = 750
+                p.setFont("Helvetica", 10)
+
+            texto = f"Doca {r.doca_numero} ({r.tipo}) - Placa: {r.placa or 'N/A'} | Nome: {r.nome or 'N/A'}"
+            detalhe = f"Regiao: {r.regiao or 'N/A'} | Chegada: {r.chegada or 'N/A'} | Saida: {r.horario_saida or 'N/A'} | CPT: {r.cpt or 'N/A'}"
+            
+            p.drawString(50, y, texto)
+            y -= 15
+            p.drawString(50, y, detalhe)
+            y -= 20
+
+        p.showPage()
+        p.save()
+        buffer.seek(0)
+        return send_file(buffer, as_attachment=True, download_name=filename, mimetype='application/pdf')
+
+    return redirect(url_for('historico_page'))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -225,16 +351,31 @@ def api_update_doca(numero):
     data = request.get_json() or {}
     
     novo_status = data.get('status')
-    
+    horario_agora = datetime.utcnow().strftime('%H:%M:%S')
+
     if novo_status in ['LIVRE', 'OCUPADA']:
-        doca.status = novo_status
-        if novo_status == 'LIVRE':
+        if novo_status == 'LIVRE' and doca.status == 'OCUPADA':
+            hist = HistoricoDoca(
+                doca_numero=doca.numero,
+                tipo=doca.tipo,
+                nome=doca.nome,
+                regiao=doca.regiao,
+                placa=doca.placa,
+                chegada=doca.chegada,
+                eta=doca.eta,
+                cpt=doca.cpt,
+                horario_saida=horario_agora,
+                data_registro=datetime.utcnow()
+            )
+            db.session.add(hist)
+
             doca.nome = ''
             doca.regiao = ''
             doca.placa = ''
             doca.chegada = ''
             doca.eta = ''
             doca.cpt = ''
+
         elif novo_status == 'OCUPADA':
             val_nome = data.get('nome', '')
             val_regiao = data.get('regiao', '')
@@ -249,7 +390,9 @@ def api_update_doca(numero):
             doca.chegada = val_chegada.strip() if isinstance(val_chegada, str) else str(val_chegada).strip()
             doca.eta = val_eta.strip() if isinstance(val_eta, str) else str(val_eta).strip()
             doca.cpt = val_cpt.strip().upper() if isinstance(val_cpt, str) else str(val_cpt).strip().upper()
-            
+
+        doca.status = novo_status
+
     db.session.commit()
     return jsonify({'success': True, 'doca': doca.to_dict()})
 
