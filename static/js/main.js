@@ -54,6 +54,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div style="margin-top: 6px; font-size: 0.7rem; font-weight: 700; color: #f43f5e;" id="cpt-timer-${numero}" data-cpt="${cpt}">
                             ⏳ CPT: Calculando...
                         </div>
+                        <div style="margin-top: 4px; font-size: 0.7rem; font-weight: 700; color: #10b981;" id="chegada-timer-${numero}" data-chegada="${chegada}">
+                            ⏱️ TEMPO NO PÁTIO: 00:00:00
+                        </div>
                         <small style="color: var(--accent-blue); margin-top: 6px; font-size: 0.65rem; text-align: center; cursor: pointer;">🔍 Clique para recolher</small>
                     `;
                     plateDisplay.setAttribute('data-detalhes', 'true');
@@ -68,6 +71,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span class="destination-value">${cpt || 'NÃO INFORMADO'}</span>
                         <div style="margin-top: 6px; font-size: 0.7rem; font-weight: 700; color: #f43f5e;" id="cpt-timer-${numero}" data-cpt="${cpt}">
                             ⏳ CPT: Calculando...
+                        </div>
+                        <div style="margin-top: 4px; font-size: 0.7rem; font-weight: 700; color: #10b981;" id="chegada-timer-${numero}" data-chegada="${chegada}">
+                            ⏱️ TEMPO NO PÁTIO: 00:00:00
                         </div>
                         <small style="color: var(--text-muted); margin-top: 6px; font-size: 0.65rem; text-align: center; cursor: pointer;">🔍 Clique para ver detalhes</small>
                     `;
@@ -121,8 +127,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Polling a cada 3 segundos para sincronizar status com o servidor
     setInterval(fetchDocasStatus, 3000);
 
-    // Atualiza os cronômetros CPT a cada 1 segundo em tempo real
-    setInterval(atualizarCronometrosCPT, 1000);
+    // Atualiza os cronômetros (CPT vermelho e Chegada verde) a cada 1 segundo em tempo real
+    setInterval(() => {
+        atualizarCronometrosCPT();
+        atualizarCronometrosChegada();
+    }, 1000);
 });
 
 async function alterarStatusComDados(numeroDoca, novoStatus, dados) {
@@ -191,6 +200,9 @@ function atualizarCardNaTela(doca) {
                     <div style="margin-top: 6px; font-size: 0.7rem; font-weight: 700; color: #f43f5e;" id="cpt-timer-${doca.numero}" data-cpt="${doca.cpt || ''}">
                         ⏳ CPT: Calculando...
                     </div>
+                    <div style="margin-top: 4px; font-size: 0.7rem; font-weight: 700; color: #10b981;" id="chegada-timer-${doca.numero}" data-chegada="${doca.chegada || ''}">
+                        ⏱️ TEMPO NO PÁTIO: 00:00:00
+                    </div>
                     <small style="color: var(--accent-blue); margin-top: 6px; font-size: 0.65rem; text-align: center; cursor: pointer;">🔍 Clique para recolher</small>
                 `;
             } else {
@@ -203,6 +215,9 @@ function atualizarCardNaTela(doca) {
                     <span class="destination-value">${doca.cpt || 'NÃO INFORMADO'}</span>
                     <div style="margin-top: 6px; font-size: 0.7rem; font-weight: 700; color: #f43f5e;" id="cpt-timer-${doca.numero}" data-cpt="${doca.cpt || ''}">
                         ⏳ CPT: Calculando...
+                    </div>
+                    <div style="margin-top: 4px; font-size: 0.7rem; font-weight: 700; color: #10b981;" id="chegada-timer-${doca.numero}" data-chegada="${doca.chegada || ''}">
+                        ⏱️ TEMPO NO PÁTIO: 00:00:00
                     </div>
                     <small style="color: var(--text-muted); margin-top: 6px; font-size: 0.65rem; text-align: center; cursor: pointer;">🔍 Clique para ver detalhes</small>
                 `;
@@ -261,7 +276,6 @@ async function fetchDocasStatus() {
 
             const card = document.getElementById(`doca-card-${doca.numero}`);
             if (card) {
-                // Atualiza os atributos de dados mesmo se o card já estiver ocupado para manter a memória limpa
                 const plateDisplay = document.getElementById(`plate-display-${doca.numero}`);
                 if (plateDisplay) {
                     plateDisplay.setAttribute('data-placa', doca.placa || '');
@@ -288,7 +302,7 @@ async function fetchDocasStatus() {
     }
 }
 
-// Função que calcula e atualiza o cronômetro decrescente para cada CPT informado
+// Cronômetro CPT (Decrescente - Vermelho)
 function atualizarCronometrosCPT() {
     const timers = document.querySelectorAll('[id^="cpt-timer-"]');
     
@@ -329,5 +343,47 @@ function atualizarCronometrosCPT() {
         const sFormatado = String(segundos).padStart(2, '0');
 
         timerEl.innerHTML = `<span style="color: #f43f5e; font-weight: 900; letter-spacing: 1px;">⏳ RESTANTE: ${hFormatado}:${mFormatado}:${sFormatado}</span>`;
+    });
+}
+
+// Cronômetro de Chegada (Crescente - Verde)
+function atualizarCronometrosChegada() {
+    const timers = document.querySelectorAll('[id^="chegada-timer-"]');
+    
+    timers.forEach(timerEl => {
+        const chegadaStr = timerEl.getAttribute('data-chegada');
+        if (!chegadaStr || chegadaStr.trim() === '' || chegadaStr.includes('NÃO')) {
+            timerEl.innerText = '⏱️ TEMPO NO PÁTIO: Não Informado';
+            return;
+        }
+
+        const match = chegadaStr.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+        if (!match) {
+            timerEl.innerText = `⏱️ TEMPO: ${chegadaStr}`;
+            return;
+        }
+
+        const agora = new Date();
+        const chegadaHora = parseInt(match[1], 10);
+        const chegadaMinuto = parseInt(match[2], 10);
+        const chegadaSegundo = match[3] ? parseInt(match[3], 10) : 0;
+
+        const inicio = new Date();
+        inicio.setHours(chegadaHora, chegadaMinuto, chegadaSegundo, 0);
+
+        let diffMs = agora - inicio;
+        if (diffMs < 0) {
+            diffMs = 0; 
+        }
+
+        const horas = Math.floor(diffMs / (1000 * 60 * 60));
+        const minutos = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+        const segundos = Math.floor((diffMs % (1000 * 60)) / 1000);
+
+        const hFormatado = String(horas).padStart(2, '0');
+        const mFormatado = String(minutos).padStart(2, '0');
+        const sFormatado = String(segundos).padStart(2, '0');
+
+        timerEl.innerHTML = `<span style="color: #10b981; font-weight: 900; letter-spacing: 1px;">⏱️ TEMPO NO PÁTIO: ${hFormatado}:${mFormatado}:${sFormatado}</span>`;
     });
 }
