@@ -62,7 +62,8 @@
                 {% endif %}
             </div>
 
-            <div class="admin-controls">
+            <!-- ID adicionado aqui para o AJAX controlar em tempo real -->
+            <div class="admin-controls" id="admin-controls-{{ doca.numero }}">
                 {% if current_user.is_authenticated %}
                     {% if doca.status == 'LIVRE' %}
                         <div class="plate-input-group form-atribuicao" id="form-{{ doca.numero }}" style="display: none; margin-top: 8px;">
@@ -128,7 +129,8 @@
                 {% endif %}
             </div>
 
-            <div class="admin-controls">
+            <!-- ID adicionado aqui para o AJAX controlar em tempo real -->
+            <div class="admin-controls" id="admin-controls-{{ doca.numero }}">
                 {% if current_user.is_authenticated %}
                     {% if doca.status == 'LIVRE' %}
                         <div class="plate-input-group form-atribuicao" id="form-{{ doca.numero }}" style="display: none; margin-top: 8px;">
