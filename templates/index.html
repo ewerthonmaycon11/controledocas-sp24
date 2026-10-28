@@ -57,9 +57,14 @@
                     <span class="destination-label" style="margin-top: 6px;">CPT:</span>
                     <span class="destination-value">{{ doca.cpt if doca.cpt else 'NÃO INFORMADO' }}</span>
                     
-                    <!-- Cronômetro Decrescente CPT -->
+                    <!-- Cronômetro Decrescente CPT (Vermelho) -->
                     <div style="margin-top: 6px; font-size: 0.7rem; font-weight: 700; color: #f43f5e;" id="cpt-timer-{{ doca.numero }}" data-cpt="{{ doca.cpt }}">
                         ⏳ CPT: Calculando...
+                    </div>
+
+                    <!-- Cronômetro Crescente de Chegada (Verde) -->
+                    <div style="margin-top: 4px; font-size: 0.7rem; font-weight: 700; color: #10b981;" id="chegada-timer-{{ doca.numero }}" data-chegada="{{ doca.chegada }}">
+                        ⏱️ TEMPO NO PÁTIO: 00:00:00
                     </div>
 
                     <small style="color: var(--text-muted); margin-top: 6px; font-size: 0.65rem; text-align: center; cursor: pointer;">🔍 Clique para ver detalhes</small>
@@ -130,9 +135,14 @@
                     <span class="destination-label" style="margin-top: 6px;">CPT:</span>
                     <span class="destination-value">{{ doca.cpt if doca.cpt else 'NÃO INFORMADO' }}</span>
                     
-                    <!-- Cronômetro Decrescente CPT -->
+                    <!-- Cronômetro Decrescente CPT (Vermelho) -->
                     <div style="margin-top: 6px; font-size: 0.7rem; font-weight: 700; color: #f43f5e;" id="cpt-timer-{{ doca.numero }}" data-cpt="{{ doca.cpt }}">
                         ⏳ CPT: Calculando...
+                    </div>
+
+                    <!-- Cronômetro Crescente de Chegada (Verde) -->
+                    <div style="margin-top: 4px; font-size: 0.7rem; font-weight: 700; color: #10b981;" id="chegada-timer-{{ doca.numero }}" data-chegada="{{ doca.chegada }}">
+                        ⏱️ TEMPO NO PÁTIO: 00:00:00
                     </div>
 
                     <small style="color: var(--text-muted); margin-top: 6px; font-size: 0.65rem; text-align: center; cursor: pointer;">🔍 Clique para ver detalhes</small>
