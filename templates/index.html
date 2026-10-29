@@ -58,7 +58,7 @@
                     <span class="destination-value">{{ doca.cpt if doca.cpt else 'NÃO INFORMADO' }}</span>
                     
                     <!-- Cronômetro Decrescente CPT (Vermelho) -->
-                    <div style="margin-top: 6px; font-size: 0.7rem; font-weight: 700; color: #f43f5e;" id="cpt-timer-{{ doca.numero }}" data-cpt="{{ doca.cpt }}">
+                    <div style="margin-top: 6px; font-size: 0.7rem; font-weight: 700; color: #f43f5e;" id="cpt-timer-{{ doca.numero }}" data-cptdatetime="{{ doca.cpt_datetime|default('') }}">
                         ⏳ CPT: Calculando...
                     </div>
 
@@ -73,7 +73,6 @@
                 {% endif %}
             </div>
 
-            <!-- ID adicionado aqui para o AJAX controlar em tempo real -->
             <div class="admin-controls" id="admin-controls-{{ doca.numero }}">
                 {% if current_user.is_authenticated %}
                     {% if doca.status == 'LIVRE' %}
@@ -81,9 +80,15 @@
                             <input type="text" id="input-nome-{{ doca.numero }}" class="input-plate" placeholder="NOME" maxlength="100">
                             <input type="text" id="input-regiao-{{ doca.numero }}" class="input-plate" placeholder="REGIÃO" maxlength="100" style="margin-top: 6px;">
                             <input type="text" id="input-placa-{{ doca.numero }}" class="input-plate" placeholder="PLACA (ABC-1D23)" maxlength="10" style="margin-top: 6px;">
-                            <input type="text" id="input-chegada-{{ doca.numero }}" class="input-plate" placeholder="CHEGADA" maxlength="20" style="margin-top: 6px;">
+                            <input type="text" id="input-chegada-{{ doca.numero }}" class="input-plate" placeholder="CHEGADA (Ex: 22:00)" maxlength="20" style="margin-top: 6px;">
                             <input type="text" id="input-eta-{{ doca.numero }}" class="input-plate" placeholder="ETA" maxlength="20" style="margin-top: 6px;">
-                            <input type="text" id="input-cpt-{{ doca.numero }}" class="input-plate" placeholder="CPT" maxlength="50" style="margin-top: 6px;">
+                            
+                            <!-- Seletor de CPT com Calendário Real (datetime-local) -->
+                            <div style="margin-top: 6px;">
+                                <label style="font-size: 0.65rem; color: var(--text-muted); font-weight: 700; display: block; margin-bottom: 2px;">DATA E HORA CPT (CALENDÁRIO):</label>
+                                <input type="datetime-local" id="input-cpt-{{ doca.numero }}" class="input-plate" style="color-scheme: dark; font-size: 0.8rem;">
+                            </div>
+
                             <div style="display: flex; gap: 4px; margin-top: 8px;">
                                 <button type="button" class="btn-action action-btn-occupy" data-numero="{{ doca.numero }}" style="flex: 1;">Atribuir</button>
                                 <button type="button" class="btn-action action-btn-cancel" data-numero="{{ doca.numero }}" style="background: var(--red-neon); color: #fff; width: 40px;">X</button>
@@ -136,7 +141,7 @@
                     <span class="destination-value">{{ doca.cpt if doca.cpt else 'NÃO INFORMADO' }}</span>
                     
                     <!-- Cronômetro Decrescente CPT (Vermelho) -->
-                    <div style="margin-top: 6px; font-size: 0.7rem; font-weight: 700; color: #f43f5e;" id="cpt-timer-{{ doca.numero }}" data-cpt="{{ doca.cpt }}">
+                    <div style="margin-top: 6px; font-size: 0.7rem; font-weight: 700; color: #f43f5e;" id="cpt-timer-{{ doca.numero }}" data-cptdatetime="{{ doca.cpt_datetime|default('') }}">
                         ⏳ CPT: Calculando...
                     </div>
 
@@ -151,7 +156,6 @@
                 {% endif %}
             </div>
 
-            <!-- ID adicionado aqui para o AJAX controlar em tempo real -->
             <div class="admin-controls" id="admin-controls-{{ doca.numero }}">
                 {% if current_user.is_authenticated %}
                     {% if doca.status == 'LIVRE' %}
@@ -159,9 +163,15 @@
                             <input type="text" id="input-nome-{{ doca.numero }}" class="input-plate" placeholder="NOME" maxlength="100">
                             <input type="text" id="input-regiao-{{ doca.numero }}" class="input-plate" placeholder="REGIÃO" maxlength="100" style="margin-top: 6px;">
                             <input type="text" id="input-placa-{{ doca.numero }}" class="input-plate" placeholder="PLACA (ABC-1D23)" maxlength="10" style="margin-top: 6px;">
-                            <input type="text" id="input-chegada-{{ doca.numero }}" class="input-plate" placeholder="CHEGADA" maxlength="20" style="margin-top: 6px;">
+                            <input type="text" id="input-chegada-{{ doca.numero }}" class="input-plate" placeholder="CHEGADA (Ex: 22:00)" maxlength="20" style="margin-top: 6px;">
                             <input type="text" id="input-eta-{{ doca.numero }}" class="input-plate" placeholder="ETA" maxlength="20" style="margin-top: 6px;">
-                            <input type="text" id="input-cpt-{{ doca.numero }}" class="input-plate" placeholder="CPT" maxlength="50" style="margin-top: 6px;">
+                            
+                            <!-- Seletor de CPT com Calendário Real (datetime-local) -->
+                            <div style="margin-top: 6px;">
+                                <label style="font-size: 0.65rem; color: var(--text-muted); font-weight: 700; display: block; margin-bottom: 2px;">DATA E HORA CPT (CALENDÁRIO):</label>
+                                <input type="datetime-local" id="input-cpt-{{ doca.numero }}" class="input-plate" style="color-scheme: dark; font-size: 0.8rem;">
+                            </div>
+
                             <div style="display: flex; gap: 4px; margin-top: 8px;">
                                 <button type="button" class="btn-action action-btn-occupy" data-numero="{{ doca.numero }}" style="flex: 1;">Atribuir</button>
                                 <button type="button" class="btn-action action-btn-cancel" data-numero="{{ doca.numero }}" style="background: var(--red-neon); color: #fff; width: 40px;">X</button>
