@@ -5,7 +5,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, jso
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
-from sqlalchemy import inspect, text
+from sqlalchemy import inspect, text, or_
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'chave-secreta-docas-2026-neon')
@@ -79,6 +79,7 @@ class HistoricoDoca(db.Model):
     cpt = db.Column(db.String(50), nullable=True, default='')
     cpt_datetime = db.Column(db.String(50), nullable=True, default='')
     horario_saida = db.Column(db.String(20), nullable=True, default='')
+    usuario_liberacao = db.Column(db.String(50), nullable=True, default='')
     data_registro = db.Column(db.DateTime, default=datetime.utcnow)
 
     def to_dict(self):
@@ -94,6 +95,7 @@ class HistoricoDoca(db.Model):
             'cpt': self.cpt or '',
             'cpt_datetime': self.cpt_datetime or '',
             'horario_saida': self.horario_saida or '',
+            'usuario_liberacao': self.usuario_liberacao or '',
             'data_registro': self.data_registro.strftime('%d/%m/%Y %H:%M:%S') if self.data_registro else ''
         }
 
@@ -132,6 +134,8 @@ def init_db():
             with db.engine.begin() as conn:
                 if 'cpt_datetime' not in h_columns:
                     conn.execute(text("ALTER TABLE historico_docas ADD COLUMN cpt_datetime VARCHAR(50) DEFAULT ''"))
+                if 'usuario_liberacao' not in h_columns:
+                    conn.execute(text("ALTER TABLE historico_docas ADD COLUMN usuario_liberacao VARCHAR(50) DEFAULT ''"))
 
         admin_user = User.query.filter_by(username='admin').first()
         if not admin_user:
@@ -149,20 +153,36 @@ def init_db():
 
 @app.route('/')
 def index():
-    docas = Doca.query.order_by(Doca.numero.asc()).all()
-    hub_count = sum(1 for d in docas if d.tipo == 'HUB')
-    soc_count = sum(1 for d in docas if d.tipo == 'SOC')
-    ocupadas_count = sum(1 for d in docas if d.status == 'OCUPADA')
-    livres_count = sum(1 for d in docas if d.status == 'LIVRE')
+    q = request.args.get('q', '').strip().upper()
+    query = Doca.query
+    
+    if q:
+        query = query.filter(
+            or_(
+                Doca.placa.ilike(f'%{q}%'),
+                Doca.nome.ilike(f'%{q}%'),
+                Doca.regiao.ilike(f'%{q}%'),
+                Doca.cpt.ilike(f'%{q}%'),
+                Doca.numero.cast(db.String).ilike(f'%{q}%')
+            )
+        )
+    
+    docas = query.order_by(Doca.numero.asc()).all()
+    todas_docas = Doca.query.all()
+    hub_count = sum(1 for d in todas_docas if d.tipo == 'HUB')
+    soc_count = sum(1 for d in todas_docas if d.tipo == 'SOC')
+    ocupadas_count = sum(1 for d in todas_docas if d.status == 'OCUPADA')
+    livres_count = sum(1 for d in todas_docas if d.status == 'LIVRE')
     
     return render_template(
         'index.html', 
         docas=docas, 
-        total=len(docas),
+        total=len(todas_docas),
         hub_count=hub_count,
         soc_count=soc_count,
         ocupadas=ocupadas_count,
-        livres=livres_count
+        livres=livres_count,
+        termo_busca=q
     )
 
 @app.route('/historico')
@@ -214,7 +234,7 @@ def exportar_historico(formato):
                 f"PLACA: {r.placa or 'NÃO INFORMADA'} | NOME: {r.nome or 'NÃO INFORMADO'}\n"
                 f"REGIÃO: {r.regiao or 'NÃO INFORMADA'} | CPT: {r.cpt or 'NÃO INFORMADO'}\n"
                 f"CHEGADA: {r.chegada or 'NÃO INFORMADA'} | ETA: {r.eta or 'NÃO INFORMADO'}\n"
-                f"HORÁRIO SAÍDA: {r.horario_saida or 'NÃO INFORMADO'}\n"
+                f"HORÁRIO SAÍDA: {r.horario_saida or 'NÃO INFORMADO'} | LIBERADO POR: {r.usuario_liberacao or 'N/A'}\n"
                 f"REGISTRADO EM: {r.data_registro.strftime('%d/%m/%Y %H:%M:%S')}\n"
                 f"--------------------------------------------------\n"
             )
@@ -242,7 +262,7 @@ def exportar_historico(formato):
                 p.setFont("Helvetica", 10)
 
             texto = f"Doca {r.doca_numero} ({r.tipo}) - Placa: {r.placa or 'N/A'} | Nome: {r.nome or 'N/A'}"
-            detalhe = f"Regiao: {r.regiao or 'N/A'} | Chegada: {r.chegada or 'N/A'} | Saida: {r.horario_saida or 'N/A'} | CPT: {r.cpt or 'N/A'}"
+            detalhe = f"Regiao: {r.regiao or 'N/A'} | Saida: {r.horario_saida or 'N/A'} | Lib. por: {r.usuario_liberacao or 'N/A'} | CPT: {r.cpt or 'N/A'}"
             
             p.drawString(50, y, texto)
             y -= 15
@@ -363,9 +383,27 @@ def api_update_doca(numero):
     data = request.get_json() or {}
     
     novo_status = data.get('status')
+    Acao = data.get('acao', 'status') # 'status' ou 'editar'
     horario_agora = (datetime.utcnow() - timedelta(hours=3)).strftime('%H:%M:%S')
 
-    if novo_status in ['LIVRE', 'OCUPADA']:
+    if Acao == 'editar' and doca.status == 'OCUPADA':
+        val_nome = data.get('nome', '')
+        val_regiao = data.get('regiao', '')
+        val_placa = data.get('placa', '')
+        val_chegada = data.get('chegada', '')
+        val_eta = data.get('eta', '')
+        val_cpt = data.get('cpt', '')
+        val_cpt_datetime = data.get('cpt_datetime', '')
+
+        doca.nome = val_nome.strip().upper() if isinstance(val_nome, str) else str(val_nome).strip().upper()
+        doca.regiao = val_regiao.strip().upper() if isinstance(val_regiao, str) else str(val_regiao).strip().upper()
+        doca.placa = val_placa.strip().upper() if isinstance(val_placa, str) else str(val_placa).strip().upper()
+        doca.chegada = val_chegada.strip() if isinstance(val_chegada, str) else str(val_chegada).strip()
+        doca.eta = val_eta.strip() if isinstance(val_eta, str) else str(val_eta).strip()
+        doca.cpt = val_cpt.strip().upper() if isinstance(val_cpt, str) else str(val_cpt).strip().upper()
+        doca.cpt_datetime = val_cpt_datetime.strip() if isinstance(val_cpt_datetime, str) else str(val_cpt_datetime).strip()
+
+    elif novo_status in ['LIVRE', 'OCUPADA']:
         if novo_status == 'LIVRE' and doca.status == 'OCUPADA':
             hist = HistoricoDoca(
                 doca_numero=doca.numero,
@@ -378,6 +416,7 @@ def api_update_doca(numero):
                 cpt=doca.cpt,
                 cpt_datetime=doca.cpt_datetime,
                 horario_saida=horario_agora,
+                usuario_liberacao=current_user.username,
                 data_registro=datetime.utcnow()
             )
             db.session.add(hist)
