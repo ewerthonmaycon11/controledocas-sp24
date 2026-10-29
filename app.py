@@ -194,6 +194,7 @@ def graficos_page():
 @login_required
 def api_graficos_dados():
     periodo = request.args.get('periodo', 'dia')
+    turno = request.args.get('turno', 'geral') # 'geral', 't1', 't2', 't3'
     agora = datetime.utcnow() - timedelta(hours=3)
 
     if periodo == 'semana':
@@ -215,13 +216,8 @@ def api_graficos_dados():
     tempos_hub = []
     tempos_soc = []
     
-    # Horas do dia para pico (00h até 23h)
     pico_horas = {i: 0 for i in range(24)}
-    
-    # Contagem por operador
     operadores = {}
-    
-    # Top regiões
     regioes = {}
 
     for r in registros:
@@ -257,8 +253,31 @@ def api_graficos_dados():
                     else:
                         tempos_soc.append(duracao)
                     
-                    # Pico por hora baseada na chegada
-                    pico_horas[p_ent[0]] += 1
+                    # Filtragem por Turno para o gráfico de pico
+                    hora_chegada = p_ent[0]
+                    minuto_chegada = p_ent[1]
+                    total_min_chegada = hora_chegada * 60 + minuto_chegada
+                    
+                    # Definição dos minutos dos turnos
+                    # T1: 05:25 (325 min) até 14:00 (840 min)
+                    # T2: 14:00 (840 min) até 21:00 (1260 min)
+                    # T3: 21:00 (1260 min) até 05:55 (355 min do dia seguinte)
+                    incluir_no_turno = False
+                    if turno == 'geral':
+                        incluir_no_turno = True
+                    elif turno == 't1':
+                        if 325 <= total_min_chegada < 840:
+                            incluir_no_turno = True
+                    elif turno == 't2':
+                        if 840 <= total_min_chegada < 1260:
+                            incluir_no_turno = True
+                    elif turno == 't3':
+                        if total_min_chegada >= 1260 or total_min_chegada < 355:
+                            incluir_no_turno = True
+
+                    if incluir_no_turno:
+                        pico_horas[hora_chegada] += 1
+
             except Exception:
                 pass
 
@@ -279,7 +298,6 @@ def api_graficos_dados():
     medio = sum(1 for t in todos_tempos if 60 < t <= 120)
     lento = sum(1 for t in todos_tempos if t > 120)
 
-    # Top 5 Regiões
     top_regioes = sorted(regioes.items(), key=lambda x: x[1], reverse=True)[:5]
 
     return jsonify({
