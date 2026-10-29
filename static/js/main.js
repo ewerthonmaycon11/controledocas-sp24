@@ -44,6 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const placa = plateDisplay.getAttribute('data-placa') || '';
                 const regiao = plateDisplay.getAttribute('data-regiao') || '';
                 const cpt = plateDisplay.getAttribute('data-cpt') || '';
+                const cptDatetime = plateDisplay.getAttribute('data-cptdatetime') || '';
                 const nome = plateDisplay.getAttribute('data-nome') || '';
                 const chegada = plateDisplay.getAttribute('data-chegada') || '';
                 const eta = plateDisplay.getAttribute('data-eta') || '';
@@ -62,7 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span class="destination-value">${eta || 'NÃO INFORMADA'}</span>
                         <span class="destination-label" style="margin-top: 4px;">CPT:</span>
                         <span class="destination-value">${cpt || 'NÃO INFORMADO'}</span>
-                        <div style="margin-top: 6px; font-size: 0.7rem; font-weight: 700; color: #f43f5e;" id="cpt-timer-${numero}" data-cpt="${cpt}">
+                        <div style="margin-top: 6px; font-size: 0.7rem; font-weight: 700; color: #f43f5e;" id="cpt-timer-${numero}" data-cptdatetime="${cptDatetime}">
                             ⏳ CPT: Calculando...
                         </div>
                         <div style="margin-top: 4px; font-size: 0.7rem; font-weight: 700; color: #10b981;" id="chegada-timer-${numero}" data-chegada="${chegada}">
@@ -76,10 +77,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span class="plate-label">PLACA:</span>
                         <span class="plate-value">${placa || 'NÃO INFORMADA'}</span>
                         <span class="destination-label" style="margin-top: 6px;">REGIÃO:</span>
-                        <span class="destination-value">${regiao || 'NÃO INFORMADO'}</span>
+                        <span class="destination-value">${regiao || 'NÃO INFORMADA'}</span>
                         <span class="destination-label" style="margin-top: 6px;">CPT:</span>
                         <span class="destination-value">${cpt || 'NÃO INFORMADO'}</span>
-                        <div style="margin-top: 6px; font-size: 0.7rem; font-weight: 700; color: #f43f5e;" id="cpt-timer-${numero}" data-cpt="${cpt}">
+                        <div style="margin-top: 6px; font-size: 0.7rem; font-weight: 700; color: #f43f5e;" id="cpt-timer-${numero}" data-cptdatetime="${cptDatetime}">
                             ⏳ CPT: Calculando...
                         </div>
                         <div style="margin-top: 4px; font-size: 0.7rem; font-weight: 700; color: #10b981;" id="chegada-timer-${numero}" data-chegada="${chegada}">
@@ -117,7 +118,22 @@ document.addEventListener('DOMContentLoaded', () => {
             const placa = placaInput ? placaInput.value.trim() : '';
             const chegada = chegadaInput ? chegadaInput.value.trim() : '';
             const eta = etaInput ? etaInput.value.trim() : '';
-            const cpt = cptInput ? cptInput.value.trim() : '';
+            
+            let cptStr = '';
+            let cptDatetime = '';
+
+            if (cptInput && cptInput.value) {
+                cptDatetime = cptInput.value; // Formato yyyy-mm-ddThh:mm vindo do datetime-local
+                // Converte para exibição amigável (DD/MM HH:MM)
+                const dataObj = new Date(cptDatetime);
+                if (!isNaN(dataObj)) {
+                    const dia = String(dataObj.getDate()).padStart(2, '0');
+                    const mes = String(dataObj.getMonth() + 1).padStart(2, '0');
+                    const hora = String(dataObj.getHours()).padStart(2, '0');
+                    const min = String(dataObj.getMinutes()).padStart(2, '0');
+                    cptStr = `${dia}/${mes} ${hora}:${min}`;
+                }
+            }
 
             if (!placa) {
                 alert('Por favor, informe a placa do veículo.');
@@ -125,7 +141,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            alterarStatusComDados(numero, 'OCUPADA', { nome, regiao, placa, chegada, eta, cpt });
+            alterarStatusComDados(numero, 'OCUPADA', { nome, regiao, placa, chegada, eta, cpt: cptStr, cpt_datetime: cptDatetime });
         }
 
         if (e.target.classList.contains('action-btn-release')) {
@@ -184,6 +200,7 @@ function atualizarCardNaTela(doca) {
         plateDisplay.setAttribute('data-placa', doca.placa || '');
         plateDisplay.setAttribute('data-regiao', doca.regiao || '');
         plateDisplay.setAttribute('data-cpt', doca.cpt || '');
+        plateDisplay.setAttribute('data-cptdatetime', doca.cpt_datetime || '');
         plateDisplay.setAttribute('data-nome', doca.nome || '');
         plateDisplay.setAttribute('data-chegada', doca.chegada || '');
         plateDisplay.setAttribute('data-eta', doca.eta || '');
@@ -205,7 +222,7 @@ function atualizarCardNaTela(doca) {
                     <span class="destination-value">${doca.eta || 'NÃO INFORMADA'}</span>
                     <span class="destination-label" style="margin-top: 4px;">CPT:</span>
                     <span class="destination-value">${doca.cpt || 'NÃO INFORMADO'}</span>
-                    <div style="margin-top: 6px; font-size: 0.7rem; font-weight: 700; color: #f43f5e;" id="cpt-timer-${doca.numero}" data-cpt="${doca.cpt || ''}">
+                    <div style="margin-top: 6px; font-size: 0.7rem; font-weight: 700; color: #f43f5e;" id="cpt-timer-${doca.numero}" data-cptdatetime="${doca.cpt_datetime || ''}">
                         ⏳ CPT: Calculando...
                     </div>
                     <div style="margin-top: 4px; font-size: 0.7rem; font-weight: 700; color: #10b981;" id="chegada-timer-${doca.numero}" data-chegada="${doca.chegada || ''}">
@@ -221,7 +238,7 @@ function atualizarCardNaTela(doca) {
                     <span class="destination-value">${doca.regiao || 'NÃO INFORMADO'}</span>
                     <span class="destination-label" style="margin-top: 6px;">CPT:</span>
                     <span class="destination-value">${doca.cpt || 'NÃO INFORMADO'}</span>
-                    <div style="margin-top: 6px; font-size: 0.7rem; font-weight: 700; color: #f43f5e;" id="cpt-timer-${doca.numero}" data-cpt="${doca.cpt || ''}">
+                    <div style="margin-top: 6px; font-size: 0.7rem; font-weight: 700; color: #f43f5e;" id="cpt-timer-${doca.numero}" data-cptdatetime="${doca.cpt_datetime || ''}">
                         ⏳ CPT: Calculando...
                     </div>
                     <div style="margin-top: 4px; font-size: 0.7rem; font-weight: 700; color: #10b981;" id="chegada-timer-${doca.numero}" data-chegada="${doca.chegada || ''}">
@@ -248,9 +265,14 @@ function atualizarCardNaTela(doca) {
                     <input type="text" id="input-nome-${doca.numero}" class="input-plate" placeholder="NOME" maxlength="100">
                     <input type="text" id="input-regiao-${doca.numero}" class="input-plate" placeholder="REGIÃO" maxlength="100" style="margin-top: 6px;">
                     <input type="text" id="input-placa-${doca.numero}" class="input-plate" placeholder="PLACA (ABC-1D23)" maxlength="10" style="margin-top: 6px;">
-                    <input type="text" id="input-chegada-${doca.numero}" class="input-plate" placeholder="CHEGADA" maxlength="20" style="margin-top: 6px;">
+                    <input type="text" id="input-chegada-${doca.numero}" class="input-plate" placeholder="CHEGADA (Ex: 22:00)" maxlength="20" style="margin-top: 6px;">
                     <input type="text" id="input-eta-${doca.numero}" class="input-plate" placeholder="ETA" maxlength="20" style="margin-top: 6px;">
-                    <input type="text" id="input-cpt-${doca.numero}" class="input-plate" placeholder="CPT" maxlength="50" style="margin-top: 6px;">
+                    
+                    <div style="margin-top: 6px;">
+                        <label style="font-size: 0.65rem; color: var(--text-muted); font-weight: 700; display: block; margin-bottom: 2px;">DATA E HORA CPT (CALENDÁRIO):</label>
+                        <input type="datetime-local" id="input-cpt-${doca.numero}" class="input-plate" style="color-scheme: dark; font-size: 0.8rem;">
+                    </div>
+
                     <div style="display: flex; gap: 4px; margin-top: 8px;">
                         <button type="button" class="btn-action action-btn-occupy" data-numero="${doca.numero}" style="flex: 1;">Atribuir</button>
                         <button type="button" class="btn-action action-btn-cancel" data-numero="${doca.numero}" style="background: var(--red-neon); color: #fff; width: 40px;">X</button>
@@ -289,6 +311,7 @@ async function fetchDocasStatus() {
                     plateDisplay.setAttribute('data-placa', doca.placa || '');
                     plateDisplay.setAttribute('data-regiao', doca.regiao || '');
                     plateDisplay.setAttribute('data-cpt', doca.cpt || '');
+                    plateDisplay.setAttribute('data-cptdatetime', doca.cpt_datetime || '');
                     plateDisplay.setAttribute('data-nome', doca.nome || '');
                     plateDisplay.setAttribute('data-chegada', doca.chegada || '');
                     plateDisplay.setAttribute('data-eta', doca.eta || '');
@@ -310,29 +333,24 @@ async function fetchDocasStatus() {
     }
 }
 
+// Cronômetro CPT (Decrescente - Vermelho) usando a data/hora exata do calendário
 function atualizarCronometrosCPT() {
     const timers = document.querySelectorAll('[id^="cpt-timer-"]');
     
     timers.forEach(timerEl => {
-        const cptStr = timerEl.getAttribute('data-cpt');
-        if (!cptStr || cptStr.trim() === '' || cptStr.includes('NÃO')) {
+        const cptDatetimeStr = timerEl.getAttribute('data-cptdatetime');
+        if (!cptDatetimeStr || cptDatetimeStr.trim() === '') {
             timerEl.innerText = '⏳ CPT: Não Informado';
             return;
         }
 
-        const match = cptStr.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
-        if (!match) {
-            timerEl.innerText = `⏳ CPT: ${cptStr}`;
+        const agora = new Date();
+        const alvo = new Date(cptDatetimeStr);
+
+        if (isNaN(alvo.getTime())) {
+            timerEl.innerText = '⏳ CPT: Inválido';
             return;
         }
-
-        const agora = new Date();
-        const cptHora = parseInt(match[1], 10);
-        const cptMinuto = parseInt(match[2], 10);
-        const cptSegundo = match[3] ? parseInt(match[3], 10) : 0;
-
-        const alvo = new Date();
-        alvo.setHours(cptHora, cptMinuto, cptSegundo, 0);
 
         const diffMs = alvo - agora;
 
@@ -353,6 +371,7 @@ function atualizarCronometrosCPT() {
     });
 }
 
+// Cronômetro de Chegada (Crescente - Verde)
 function atualizarCronometrosChegada() {
     const timers = document.querySelectorAll('[id^="chegada-timer-"]');
     
