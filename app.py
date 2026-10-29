@@ -5,7 +5,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, jso
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
-from sqlalchemy import inspect, text, or_
+from sqlalchemy import inspect, text, or_, func
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'chave-secreta-docas-2026-neon')
@@ -193,14 +193,14 @@ def graficos_page():
 @app.route('/api/graficos/dados')
 @login_required
 def api_graficos_dados():
-    periodo = request.args.get('periodo', 'dia') # 'dia', 'semana', 'mes'
+    periodo = request.args.get('periodo', 'dia')
     agora = datetime.utcnow() - timedelta(hours=3)
 
     if periodo == 'semana':
         inicio = agora - timedelta(days=7)
     elif periodo == 'mes':
         inicio = agora - timedelta(days=30)
-    else: # 'dia'
+    else:
         inicio = datetime(agora.year, agora.month, agora.day, 0, 0, 0)
 
     registros = HistoricoDoca.query.filter(
@@ -212,10 +212,20 @@ def api_graficos_dados():
 
     cpt_no_prazo = 0
     cpt_fora_prazo = 0
-    tempos_permanencia_min = []
+    tempos_hub = []
+    tempos_soc = []
+    
+    # Horas do dia para pico (00h até 23h)
+    pico_horas = {i: 0 for i in range(24)}
+    
+    # Contagem por operador
+    operadores = {}
+    
+    # Top regiões
+    regioes = {}
 
     for r in registros:
-        # Cálculo de CPT no prazo x fora do prazo
+        # CPT
         if r.cpt_datetime and r.horario_saida:
             try:
                 alvo_cpt = datetime.fromisoformat(r.cpt_datetime)
@@ -231,7 +241,7 @@ def api_graficos_dados():
         else:
             cpt_no_prazo += 1
 
-        # Tempo no Pátio (Entrada x Saída)
+        # Tempo Permanência & Setor
         if r.chegada and r.horario_saida:
             try:
                 p_ent = [int(x) for x in r.chegada.split(':')]
@@ -242,15 +252,35 @@ def api_graficos_dados():
                     min_sai += 24 * 60
                 duracao = min_sai - min_ent
                 if duracao >= 0:
-                    tempos_permanencia_min.append(duracao)
+                    if r.tipo == 'HUB':
+                        tempos_hub.append(duracao)
+                    else:
+                        tempos_soc.append(duracao)
+                    
+                    # Pico por hora baseada na chegada
+                    pico_horas[p_ent[0]] += 1
             except Exception:
                 pass
 
-    rapido = sum(1 for t in tempos_permanencia_min if t <= 60)
-    medio = sum(1 for t in tempos_permanencia_min if 60 < t <= 120)
-    lento = sum(1 for t in tempos_permanencia_min if t > 120)
+        # Operador
+        op = r.usuario_liberacao if r.usuario_liberacao else 'SISTEMA'
+        operadores[op] = operadores.get(op, 0) + 1
 
-    avg_tempo = sum(tempos_permanencia_min) / len(tempos_permanencia_min) if tempos_permanencia_min else 0
+        # Região
+        reg = r.regiao if r.regiao else 'NÃO INFORMADA'
+        regioes[reg] = regioes.get(reg, 0) + 1
+
+    todos_tempos = tempos_hub + tempos_soc
+    avg_tempo = sum(todos_tempos) / len(todos_tempos) if todos_tempos else 0
+    avg_hub = sum(tempos_hub) / len(tempos_hub) if tempos_hub else 0
+    avg_soc = sum(tempos_soc) / len(tempos_soc) if tempos_soc else 0
+
+    rapido = sum(1 for t in todos_tempos if t <= 60)
+    medio = sum(1 for t in todos_tempos if 60 < t <= 120)
+    lento = sum(1 for t in todos_tempos if t > 120)
+
+    # Top 5 Regiões
+    top_regioes = sorted(regioes.items(), key=lambda x: x[1], reverse=True)[:5]
 
     return jsonify({
         'total_operacoes': len(registros),
@@ -267,6 +297,22 @@ def api_graficos_dados():
             'ate_1h': rapido,
             'de_1h_2h': medio,
             'acima_2h': lento
+        },
+        'tempo_setor': {
+            'HUB': round(avg_hub, 1),
+            'SOC': round(avg_soc, 1)
+        },
+        'pico_horas': {
+            'labels': [f"{h:02d}:00" for h in range(24)],
+            'data': [pico_horas[h] for h in range(24)]
+        },
+        'operadores': {
+            'labels': list(operadores.keys()),
+            'data': list(operadores.values())
+        },
+        'regioes': {
+            'labels': [item[0] for item in top_regioes],
+            'data': [item[1] for item in top_regioes]
         }
     })
 
