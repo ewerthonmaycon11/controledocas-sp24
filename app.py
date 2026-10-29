@@ -46,6 +46,7 @@ class Doca(db.Model):
     chegada = db.Column(db.String(20), nullable=True, default='')
     eta = db.Column(db.String(20), nullable=True, default='')
     cpt = db.Column(db.String(50), nullable=True, default='')
+    cpt_datetime = db.Column(db.String(50), nullable=True, default='')
     
     ultima_atualizacao = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -61,6 +62,7 @@ class Doca(db.Model):
             'chegada': self.chegada or '',
             'eta': self.eta or '',
             'cpt': self.cpt or '',
+            'cpt_datetime': self.cpt_datetime or '',
             'ultima_atualizacao': self.ultima_atualizacao.strftime('%H:%M:%S') if self.ultima_atualizacao else ''
         }
 
@@ -75,6 +77,7 @@ class HistoricoDoca(db.Model):
     chegada = db.Column(db.String(20), nullable=True, default='')
     eta = db.Column(db.String(20), nullable=True, default='')
     cpt = db.Column(db.String(50), nullable=True, default='')
+    cpt_datetime = db.Column(db.String(50), nullable=True, default='')
     horario_saida = db.Column(db.String(20), nullable=True, default='')
     data_registro = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -89,6 +92,7 @@ class HistoricoDoca(db.Model):
             'chegada': self.chegada or '',
             'eta': self.eta or '',
             'cpt': self.cpt or '',
+            'cpt_datetime': self.cpt_datetime or '',
             'horario_saida': self.horario_saida or '',
             'data_registro': self.data_registro.strftime('%d/%m/%Y %H:%M:%S') if self.data_registro else ''
         }
@@ -120,6 +124,14 @@ def init_db():
                     conn.execute(text("ALTER TABLE docas ADD COLUMN eta VARCHAR(20) DEFAULT ''"))
                 if 'cpt' not in columns:
                     conn.execute(text("ALTER TABLE docas ADD COLUMN cpt VARCHAR(50) DEFAULT ''"))
+                if 'cpt_datetime' not in columns:
+                    conn.execute(text("ALTER TABLE docas ADD COLUMN cpt_datetime VARCHAR(50) DEFAULT ''"))
+
+        if inspector.has_table("historico_docas"):
+            h_columns = [c['name'] for c in inspector.get_columns("historico_docas")]
+            with db.engine.begin() as conn:
+                if 'cpt_datetime' not in h_columns:
+                    conn.execute(text("ALTER TABLE historico_docas ADD COLUMN cpt_datetime VARCHAR(50) DEFAULT ''"))
 
         admin_user = User.query.filter_by(username='admin').first()
         if not admin_user:
@@ -288,7 +300,7 @@ def register():
         flash('Cadastro realizado com sucesso! Aguarde a aprovação do Administrador para acessar.', 'info')
         return redirect(url_for('login'))
         
-    return register_template('register.html') if 'register_template' in globals() else render_template('register.html')
+    return render_template('register.html')
 
 @app.route('/logout')
 @login_required
@@ -351,8 +363,6 @@ def api_update_doca(numero):
     data = request.get_json() or {}
     
     novo_status = data.get('status')
-    
-    # Ajusta o horário considerando o fuso horário do Brasil (UTC-3)
     horario_agora = (datetime.utcnow() - timedelta(hours=3)).strftime('%H:%M:%S')
 
     if novo_status in ['LIVRE', 'OCUPADA']:
@@ -366,6 +376,7 @@ def api_update_doca(numero):
                 chegada=doca.chegada,
                 eta=doca.eta,
                 cpt=doca.cpt,
+                cpt_datetime=doca.cpt_datetime,
                 horario_saida=horario_agora,
                 data_registro=datetime.utcnow()
             )
@@ -377,6 +388,7 @@ def api_update_doca(numero):
             doca.chegada = ''
             doca.eta = ''
             doca.cpt = ''
+            doca.cpt_datetime = ''
 
         elif novo_status == 'OCUPADA':
             val_nome = data.get('nome', '')
@@ -385,6 +397,7 @@ def api_update_doca(numero):
             val_chegada = data.get('chegada', '')
             val_eta = data.get('eta', '')
             val_cpt = data.get('cpt', '')
+            val_cpt_datetime = data.get('cpt_datetime', '')
 
             doca.nome = val_nome.strip().upper() if isinstance(val_nome, str) else str(val_nome).strip().upper()
             doca.regiao = val_regiao.strip().upper() if isinstance(val_regiao, str) else str(val_regiao).strip().upper()
@@ -392,6 +405,7 @@ def api_update_doca(numero):
             doca.chegada = val_chegada.strip() if isinstance(val_chegada, str) else str(val_chegada).strip()
             doca.eta = val_eta.strip() if isinstance(val_eta, str) else str(val_eta).strip()
             doca.cpt = val_cpt.strip().upper() if isinstance(val_cpt, str) else str(val_cpt).strip().upper()
+            doca.cpt_datetime = val_cpt_datetime.strip() if isinstance(val_cpt_datetime, str) else str(val_cpt_datetime).strip()
 
         doca.status = novo_status
 
