@@ -104,7 +104,7 @@ def load_user(user_id):
     return db.session.get(User, int(user_id))
 
 def limpar_historico_antigo():
-    limite = datetime.utcnow() - timedelta(days=2)
+    limite = datetime.utcnow() - timedelta(days=60)
     HistoricoDoca.query.filter(HistoricoDoca.data_registro < limite).delete()
     db.session.commit()
 
@@ -184,6 +184,91 @@ def index():
         livres=livres_count,
         termo_busca=q
     )
+
+@app.route('/graficos')
+@login_required
+def graficos_page():
+    return render_template('graficos.html')
+
+@app.route('/api/graficos/dados')
+@login_required
+def api_graficos_dados():
+    periodo = request.args.get('periodo', 'dia') # 'dia', 'semana', 'mes'
+    agora = datetime.utcnow() - timedelta(hours=3)
+
+    if periodo == 'semana':
+        inicio = agora - timedelta(days=7)
+    elif periodo == 'mes':
+        inicio = agora - timedelta(days=30)
+    else: # 'dia'
+        inicio = datetime(agora.year, agora.month, agora.day, 0, 0, 0)
+
+    registros = HistoricoDoca.query.filter(
+        HistoricoDoca.data_registro >= inicio
+    ).all()
+
+    hub_count = sum(1 for r in registros if r.tipo == 'HUB')
+    soc_count = sum(1 for r in registros if r.tipo == 'SOC')
+
+    cpt_no_prazo = 0
+    cpt_fora_prazo = 0
+    tempos_permanencia_min = []
+
+    for r in registros:
+        # Cálculo de CPT no prazo x fora do prazo
+        if r.cpt_datetime and r.horario_saida:
+            try:
+                alvo_cpt = datetime.fromisoformat(r.cpt_datetime)
+                data_reg = r.data_registro - timedelta(hours=3)
+                partes_saida = r.horario_saida.split(':')
+                dt_saida = datetime(data_reg.year, data_reg.month, data_reg.day, int(partes_saida[0]), int(partes_saida[1]), int(partes_saida[2]))
+                if dt_saida > alvo_cpt:
+                    cpt_fora_prazo += 1
+                else:
+                    cpt_no_prazo += 1
+            except Exception:
+                cpt_no_prazo += 1
+        else:
+            cpt_no_prazo += 1
+
+        # Tempo no Pátio (Entrada x Saída)
+        if r.chegada and r.horario_saida:
+            try:
+                p_ent = [int(x) for x in r.chegada.split(':')]
+                p_sai = [int(x) for x in r.horario_saida.split(':')]
+                min_ent = p_ent[0] * 60 + p_ent[1]
+                min_sai = p_sai[0] * 60 + p_sai[1]
+                if min_sai < min_ent:
+                    min_sai += 24 * 60
+                duracao = min_sai - min_ent
+                if duracao >= 0:
+                    tempos_permanencia_min.append(duracao)
+            except Exception:
+                pass
+
+    rapido = sum(1 for t in tempos_permanencia_min if t <= 60)
+    medio = sum(1 for t in tempos_permanencia_min if 60 < t <= 120)
+    lento = sum(1 for t in tempos_permanencia_min if t > 120)
+
+    avg_tempo = sum(tempos_permanencia_min) / len(tempos_permanencia_min) if tempos_permanencia_min else 0
+
+    return jsonify({
+        'total_operacoes': len(registros),
+        'tempo_medio_minutos': round(avg_tempo, 1),
+        'setores': {
+            'HUB': hub_count,
+            'SOC': soc_count
+        },
+        'cpt': {
+            'no_prazo': cpt_no_prazo,
+            'fora_prazo': cpt_fora_prazo
+        },
+        'velocidade': {
+            'ate_1h': rapido,
+            'de_1h_2h': medio,
+            'acima_2h': lento
+        }
+    })
 
 @app.route('/historico')
 @login_required
@@ -383,7 +468,7 @@ def api_update_doca(numero):
     data = request.get_json() or {}
     
     novo_status = data.get('status')
-    Acao = data.get('acao', 'status') # 'status' ou 'editar'
+    Acao = data.get('acao', 'status')
     horario_agora = (datetime.utcnow() - timedelta(hours=3)).strftime('%H:%M:%S')
 
     if Acao == 'editar' and doca.status == 'OCUPADA':
