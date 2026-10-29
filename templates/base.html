@@ -3,77 +3,76 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SICP - Sistema de Controle de Docas & Pátio</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <title>PÁTIODOCAS PRO - Painel Logístico</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
+    <!-- Topbar Header -->
+    <header class="topbar">
+        <div class="topbar-left">
+            <button class="menu-toggle" id="open-sidebar" aria-label="Abrir Menu">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+            </button>
+            <div class="logo-container">
+                <span class="logo-icon">🚛</span>
+                <h1 class="logo-text">PÁTIODOCAS <span class="badge-pro">PRO</span></h1>
+            </div>
+        </div>
+        <div class="topbar-right">
+            {% if current_user.is_authenticated %}
+                <span class="user-badge {{ 'admin' if current_user.is_admin else 'operator' }}">{{ current_user.username }}</span>
+                <a href="{{ url_for('logout') }}" class="btn-logout">Sair</a>
+            {% else %}
+                <a href="{{ url_for('login') }}" class="btn-login">Entrar</a>
+            {% endif %}
+        </div>
+    </header>
+
     <!-- Menu Lateral (Sidebar) -->
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            <h3>PAINEL DE NAVEGAÇÃO</h3>
-            <button id="close-sidebar" class="btn-close-sidebar">✕</button>
+            <h2>PAINEL DE NAVEGAÇÃO</h2>
+            <button class="close-sidebar" id="close-sidebar">&times;</button>
         </div>
         <nav class="sidebar-nav">
             <a href="{{ url_for('index') }}" class="nav-item">
-                📊 Monitor de Docas
+                <span class="nav-icon">📊</span> Visão Geral do Pátio
             </a>
-            {% if current_user.is_authenticated %}
+            <a href="{{ url_for('graficos_page') }}" class="nav-item">
+                <span class="nav-icon">📈</span> Gráficos & Desempenho
+            </a>
             <a href="{{ url_for('historico_page') }}" class="nav-item">
-                📅 Histórico de Operações
+                <span class="nav-icon">📜</span> Histórico de Saídas
             </a>
-            {% if current_user.is_admin %}
+            {% if current_user.is_authenticated and current_user.is_admin %}
             <a href="{{ url_for('admin_users') }}" class="nav-item">
-                👥 Gestão de Usuários
+                <span class="nav-icon">👥</span> Gerenciar Usuários
             </a>
-            {% endif %}
             {% endif %}
         </nav>
     </aside>
 
-    <div class="main-wrapper">
-        <header class="topbar">
-            <div class="logo-container">
-                <button id="open-sidebar" class="btn-toggle-sidebar">☰</button>
-                <span class="logo-icon">🚛</span>
-                <a href="{{ url_for('index') }}" style="text-decoration: none; color: inherit;">
-                    <span class="logo-text">PÁTIO<b>DOCAS</b> <small>PRO</small></span>
-                </a>
-            </div>
-            <div class="user-status">
-                {% if current_user.is_authenticated %}
-                    {% if current_user.is_admin %}
-                        <span class="badge-admin">ADMINISTRADOR</span>
-                    {% else %}
-                        <span class="badge-viewer" style="background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border-color: rgba(16, 185, 129, 0.4);">OPERADOR</span>
-                    {% endif %}
-                    <span class="username">{{ current_user.username }}</span>
-                    <a href="{{ url_for('logout') }}" class="btn-logout">Sair</a>
-                {% else %}
-                    <span class="badge-viewer">MODO VISUALIZAÇÃO</span>
-                    <a href="{{ url_for('login') }}" class="btn-login">Acesso / Entrar</a>
-                {% endif %}
-            </div>
-        </header>
+    <main class="main-container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-container">
+                    {% for category, message in messages %}
+                        <div class="flash-alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
 
-        <main class="container">
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    <div class="flash-container">
-                        {% for category, message in messages %}
-                            <div class="alert alert-{{ category }}">{{ message }}</div>
-                        {% endfor %}
-                    </div>
-                {% endif %}
-            {% endwith %}
+        {% block content %}{% endblock %}
+    </main>
 
-            {% block content %}{% endblock %}
-        </main>
-
-        <footer class="footer">
-            <p>SICP &copy; 2026 - Controle de Pátio Logístico | Conectado a Neon PostgreSQL</p>
-        </footer>
-    </div>
+    <footer class="footer">
+        <p>SICP © 2026 - Controle de Pátio Logístico | Conectado ao Neon PostgreSQL</p>
+    </footer>
 
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
