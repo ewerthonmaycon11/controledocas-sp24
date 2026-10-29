@@ -5,7 +5,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, jso
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
-from sqlalchemy import inspect, text, or_, func
+from sqlalchemy import inspect, text, or_
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'chave-secreta-docas-2026-neon')
@@ -47,6 +47,7 @@ class Doca(db.Model):
     eta = db.Column(db.String(20), nullable=True, default='')
     cpt = db.Column(db.String(50), nullable=True, default='')
     cpt_datetime = db.Column(db.String(50), nullable=True, default='')
+    usuario_atribuicao = db.Column(db.String(50), nullable=True, default='')
     
     ultima_atualizacao = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -63,6 +64,7 @@ class Doca(db.Model):
             'eta': self.eta or '',
             'cpt': self.cpt or '',
             'cpt_datetime': self.cpt_datetime or '',
+            'usuario_atribuicao': self.usuario_atribuicao or '',
             'ultima_atualizacao': self.ultima_atualizacao.strftime('%H:%M:%S') if self.ultima_atualizacao else ''
         }
 
@@ -80,6 +82,7 @@ class HistoricoDoca(db.Model):
     cpt_datetime = db.Column(db.String(50), nullable=True, default='')
     horario_saida = db.Column(db.String(20), nullable=True, default='')
     usuario_liberacao = db.Column(db.String(50), nullable=True, default='')
+    usuario_atribuicao = db.Column(db.String(50), nullable=True, default='')
     data_registro = db.Column(db.DateTime, default=datetime.utcnow)
 
     def to_dict(self):
@@ -96,6 +99,7 @@ class HistoricoDoca(db.Model):
             'cpt_datetime': self.cpt_datetime or '',
             'horario_saida': self.horario_saida or '',
             'usuario_liberacao': self.usuario_liberacao or '',
+            'usuario_atribuicao': self.usuario_atribuicao or '',
             'data_registro': self.data_registro.strftime('%d/%m/%Y %H:%M:%S') if self.data_registro else ''
         }
 
@@ -116,26 +120,14 @@ def init_db():
         if inspector.has_table("docas"):
             columns = [c['name'] for c in inspector.get_columns("docas")]
             with db.engine.begin() as conn:
-                if 'nome' not in columns:
-                    conn.execute(text("ALTER TABLE docas ADD COLUMN nome VARCHAR(100) DEFAULT ''"))
-                if 'regiao' not in columns:
-                    conn.execute(text("ALTER TABLE docas ADD COLUMN regiao VARCHAR(100) DEFAULT ''"))
-                if 'chegada' not in columns:
-                    conn.execute(text("ALTER TABLE docas ADD COLUMN chegada VARCHAR(20) DEFAULT ''"))
-                if 'eta' not in columns:
-                    conn.execute(text("ALTER TABLE docas ADD COLUMN eta VARCHAR(20) DEFAULT ''"))
-                if 'cpt' not in columns:
-                    conn.execute(text("ALTER TABLE docas ADD COLUMN cpt VARCHAR(50) DEFAULT ''"))
-                if 'cpt_datetime' not in columns:
-                    conn.execute(text("ALTER TABLE docas ADD COLUMN cpt_datetime VARCHAR(50) DEFAULT ''"))
+                if 'usuario_atribuicao' not in columns:
+                    conn.execute(text("ALTER TABLE docas ADD COLUMN usuario_atribuicao VARCHAR(50) DEFAULT ''"))
 
         if inspector.has_table("historico_docas"):
             h_columns = [c['name'] for c in inspector.get_columns("historico_docas")]
             with db.engine.begin() as conn:
-                if 'cpt_datetime' not in h_columns:
-                    conn.execute(text("ALTER TABLE historico_docas ADD COLUMN cpt_datetime VARCHAR(50) DEFAULT ''"))
-                if 'usuario_liberacao' not in h_columns:
-                    conn.execute(text("ALTER TABLE historico_docas ADD COLUMN usuario_liberacao VARCHAR(50) DEFAULT ''"))
+                if 'usuario_atribuicao' not in h_columns:
+                    conn.execute(text("ALTER TABLE historico_docas ADD COLUMN usuario_atribuicao VARCHAR(50) DEFAULT ''"))
 
         admin_user = User.query.filter_by(username='admin').first()
         if not admin_user:
@@ -180,7 +172,7 @@ def index():
         total=len(todas_docas),
         hub_count=hub_count,
         soc_count=soc_count,
-        ocupadas=ocupadas_count,
+        ocupadas_count=ocupadas_count,
         livres=livres_count,
         termo_busca=q
     )
@@ -194,7 +186,7 @@ def graficos_page():
 @login_required
 def api_graficos_dados():
     periodo = request.args.get('periodo', 'dia')
-    turno = request.args.get('turno', 'geral') # 'geral', 't1', 't2', 't3'
+    turno = request.args.get('turno', 'geral')
     agora = datetime.utcnow() - timedelta(hours=3)
 
     if periodo == 'semana':
@@ -217,11 +209,11 @@ def api_graficos_dados():
     tempos_soc = []
     
     pico_horas = {i: 0 for i in range(24)}
-    operadores = {}
+    operadores_atribuicao = {}
+    operadores_liberacao = {}
     regioes = {}
 
     for r in registros:
-        # CPT
         if r.cpt_datetime and r.horario_saida:
             try:
                 alvo_cpt = datetime.fromisoformat(r.cpt_datetime)
@@ -237,7 +229,6 @@ def api_graficos_dados():
         else:
             cpt_no_prazo += 1
 
-        # Tempo Permanência & Setor
         if r.chegada and r.horario_saida:
             try:
                 p_ent = [int(x) for x in r.chegada.split(':')]
@@ -253,15 +244,10 @@ def api_graficos_dados():
                     else:
                         tempos_soc.append(duracao)
                     
-                    # Filtragem por Turno para o gráfico de pico
                     hora_chegada = p_ent[0]
                     minuto_chegada = p_ent[1]
                     total_min_chegada = hora_chegada * 60 + minuto_chegada
                     
-                    # Definição dos minutos dos turnos
-                    # T1: 05:25 (325 min) até 14:00 (840 min)
-                    # T2: 14:00 (840 min) até 21:00 (1260 min)
-                    # T3: 21:00 (1260 min) até 05:55 (355 min do dia seguinte)
                     incluir_no_turno = False
                     if turno == 'geral':
                         incluir_no_turno = True
@@ -277,15 +263,16 @@ def api_graficos_dados():
 
                     if incluir_no_turno:
                         pico_horas[hora_chegada] += 1
-
             except Exception:
                 pass
 
-        # Operador
-        op = r.usuario_liberacao if r.usuario_liberacao else 'SISTEMA'
-        operadores[op] = operadores.get(op, 0) + 1
+        # Atribuições e Liberações
+        op_atrib = r.usuario_atribuicao if r.usuario_atribuicao else 'SISTEMA'
+        operadores_atribuicao[op_atrib] = operadores_atribuicao.get(op_atrib, 0) + 1
 
-        # Região
+        op_lib = r.usuario_liberacao if r.usuario_liberacao else 'SISTEMA'
+        operadores_liberacao[op_lib] = operadores_liberacao.get(op_lib, 0) + 1
+
         reg = r.regiao if r.regiao else 'NÃO INFORMADA'
         regioes[reg] = regioes.get(reg, 0) + 1
 
@@ -303,30 +290,21 @@ def api_graficos_dados():
     return jsonify({
         'total_operacoes': len(registros),
         'tempo_medio_minutos': round(avg_tempo, 1),
-        'setores': {
-            'HUB': hub_count,
-            'SOC': soc_count
-        },
-        'cpt': {
-            'no_prazo': cpt_no_prazo,
-            'fora_prazo': cpt_fora_prazo
-        },
-        'velocidade': {
-            'ate_1h': rapido,
-            'de_1h_2h': medio,
-            'acima_2h': lento
-        },
-        'tempo_setor': {
-            'HUB': round(avg_hub, 1),
-            'SOC': round(avg_soc, 1)
-        },
+        'setores': {'HUB': hub_count, 'SOC': soc_count},
+        'cpt': {'no_prazo': cpt_no_prazo, 'fora_prazo': cpt_fora_prazo},
+        'velocidade': {'ate_1h': rapido, 'de_1h_2h': medio, 'acima_2h': lento},
+        'tempo_setor': {'HUB': round(avg_hub, 1), 'SOC': round(avg_soc, 1)},
         'pico_horas': {
             'labels': [f"{h:02d}:00" for h in range(24)],
             'data': [pico_horas[h] for h in range(24)]
         },
+        'atribuicoes': {
+            'labels': list(operadores_atribuicao.keys()),
+            'data': list(operadores_atribuicao.values())
+        },
         'operadores': {
-            'labels': list(operadores.keys()),
-            'data': list(operadores.values())
+            'labels': list(operadores_liberacao.keys()),
+            'data': list(operadores_liberacao.values())
         },
         'regioes': {
             'labels': [item[0] for item in top_regioes],
@@ -383,7 +361,7 @@ def exportar_historico(formato):
                 f"PLACA: {r.placa or 'NÃO INFORMADA'} | NOME: {r.nome or 'NÃO INFORMADO'}\n"
                 f"REGIÃO: {r.regiao or 'NÃO INFORMADA'} | CPT: {r.cpt or 'NÃO INFORMADO'}\n"
                 f"CHEGADA: {r.chegada or 'NÃO INFORMADA'} | ETA: {r.eta or 'NÃO INFORMADO'}\n"
-                f"HORÁRIO SAÍDA: {r.horario_saida or 'NÃO INFORMADO'} | LIBERADO POR: {r.usuario_liberacao or 'N/A'}\n"
+                f"HORÁRIO SAÍDA: {r.horario_saida or 'NÃO INFORMADO'} | ATRIBUÍDO POR: {r.usuario_atribuicao or 'N/A'} | LIBERADO POR: {r.usuario_liberacao or 'N/A'}\n"
                 f"REGISTRADO EM: {r.data_registro.strftime('%d/%m/%Y %H:%M:%S')}\n"
                 f"--------------------------------------------------\n"
             )
@@ -410,8 +388,8 @@ def exportar_historico(formato):
                 y = 750
                 p.setFont("Helvetica", 10)
 
-            texto = f"Doca {r.doca_numero} ({r.tipo}) - Placa: {r.placa or 'N/A'} | Nome: {r.nome or 'N/A'}"
-            detalhe = f"Regiao: {r.regiao or 'N/A'} | Saida: {r.horario_saida or 'N/A'} | Lib. por: {r.usuario_liberacao or 'N/A'} | CPT: {r.cpt or 'N/A'}"
+            texto = f"Doca {r.doca_numero} ({r.tipo}) - Placa: {r.placa or 'N/A'} | Atrib: {r.usuario_atribuicao or 'N/A'}"
+            detalhe = f"Regiao: {r.regiao or 'N/A'} | Saida: {r.horario_saida or 'N/A'} | Lib: {r.usuario_liberacao or 'N/A'} | CPT: {r.cpt or 'N/A'}"
             
             p.drawString(50, y, texto)
             y -= 15
@@ -566,6 +544,7 @@ def api_update_doca(numero):
                 cpt_datetime=doca.cpt_datetime,
                 horario_saida=horario_agora,
                 usuario_liberacao=current_user.username,
+                usuario_atribuicao=doca.usuario_atribuicao,
                 data_registro=datetime.utcnow()
             )
             db.session.add(hist)
@@ -577,6 +556,7 @@ def api_update_doca(numero):
             doca.eta = ''
             doca.cpt = ''
             doca.cpt_datetime = ''
+            doca.usuario_atribuicao = ''
 
         elif novo_status == 'OCUPADA':
             val_nome = data.get('nome', '')
@@ -594,6 +574,10 @@ def api_update_doca(numero):
             doca.eta = val_eta.strip() if isinstance(val_eta, str) else str(val_eta).strip()
             doca.cpt = val_cpt.strip().upper() if isinstance(val_cpt, str) else str(val_cpt).strip().upper()
             doca.cpt_datetime = val_cpt_datetime.strip() if isinstance(val_cpt_datetime, str) else str(val_cpt_datetime).strip()
+            
+            # Registra quem fez a atribuição caso ainda não tenha
+            if not doca.usuario_atribuicao:
+                doca.usuario_atribuicao = current_user.username
 
         doca.status = novo_status
 
