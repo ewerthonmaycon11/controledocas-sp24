@@ -60,13 +60,12 @@
         </div>
     </div>
 
-    <!-- 4. Pico de Ocupação por Hora (Com Filtro de Turnos Acima) -->
+    <!-- 4. Pico de Ocupação por Hora (Com Filtro de Turnos) -->
     <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem; text-align: center; grid-column: 1 / -1;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 10px;">
             <h3 style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; margin: 0;">Fluxo e Pico de Chegadas por Horário</h3>
             
-            <!-- Botões de Seleção de Turno -->
-            <div style="display: flex; gap: 6px;">
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
                 <button class="btn-turno active" data-turno="geral" style="padding: 5px 12px; border-radius: 6px; border: 1px solid var(--accent-blue); background: var(--accent-blue); color: #090d16; font-size: 0.75rem; font-weight: 700; cursor: pointer;">Geral</button>
                 <button class="btn-turno" data-turno="t1" style="padding: 5px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-muted); font-size: 0.75rem; font-weight: 700; cursor: pointer;">T1 (05:25 - 14:00)</button>
                 <button class="btn-turno" data-turno="t2" style="padding: 5px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-muted); font-size: 0.75rem; font-weight: 700; cursor: pointer;">T2 (14:00 - 21:00)</button>
@@ -79,16 +78,24 @@
         </div>
     </div>
 
-    <!-- 5. Produtividade por Operador -->
+    <!-- 5. Veículos Atribuídos / Cadastrados (Produtividade) -->
     <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem; text-align: center;">
-        <h3 style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; text-transform: uppercase;">Liberações por Operador (Produtividade)</h3>
+        <h3 style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; text-transform: uppercase;">Veículos Atribuídos (Produtividade)</h3>
+        <div style="position: relative; height: 260px; display: flex; align-items: center; justify-content: center;">
+            <canvas id="chartAtribuicoes"></canvas>
+        </div>
+    </div>
+
+    <!-- 6. Liberações por Operador -->
+    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem; text-align: center;">
+        <h3 style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; text-transform: uppercase;">Liberações por Operador</h3>
         <div style="position: relative; height: 260px; display: flex; align-items: center; justify-content: center;">
             <canvas id="chartOperadores"></canvas>
         </div>
     </div>
 
-    <!-- 6. Principais Regiões de Destino -->
-    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem; text-align: center;">
+    <!-- 7. Principais Regiões de Destino -->
+    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem; text-align: center; grid-column: 1 / -1;">
         <h3 style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; text-transform: uppercase;">Top Regiões de Destino</h3>
         <div style="position: relative; height: 260px; display: flex; align-items: center; justify-content: center;">
             <canvas id="chartRegioes"></canvas>
@@ -99,11 +106,10 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    let chartSetores, chartCPT, chartVelocidade, chartPicoHoras, chartOperadores, chartRegioes;
+    let chartSetores, chartCPT, chartVelocidade, chartPicoHoras, chartAtribuicoes, chartOperadores, chartRegioes;
     let periodoAtual = 'dia';
     let turnoAtual = 'geral';
 
-    // Eventos de Período
     const btnPeriodos = document.querySelectorAll('.btn-periodo');
     btnPeriodos.forEach(btn => {
         btn.addEventListener('click', () => {
@@ -121,7 +127,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Eventos de Turno para o gráfico de barras
     const btnTurnos = document.querySelectorAll('.btn-turno');
     btnTurnos.forEach(btn => {
         btn.addEventListener('click', () => {
@@ -145,7 +150,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!res.ok) return;
             const dados = await res.json();
 
-            // KPIs
             document.getElementById('kpi-total').innerText = dados.total_operacoes;
             document.getElementById('kpi-tempo-medio').innerText = `${dados.tempo_medio_minutos} min`;
             document.getElementById('kpi-hub-medio').innerText = `${dados.tempo_setor.HUB} min`;
@@ -167,15 +171,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             };
 
-            // Destruir gráficos anteriores
             if (chartSetores) chartSetores.destroy();
             if (chartCPT) chartCPT.destroy();
             if (chartVelocidade) chartVelocidade.destroy();
             if (chartPicoHoras) chartPicoHoras.destroy();
+            if (chartAtribuicoes) chartAtribuicoes.destroy();
             if (chartOperadores) chartOperadores.destroy();
             if (chartRegioes) chartRegioes.destroy();
 
-            // 1. Setores
             chartSetores = new Chart(document.getElementById('chartSetores'), {
                 type: 'doughnut',
                 data: {
@@ -185,7 +188,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 options: configDoughnut
             });
 
-            // 2. CPT
             chartCPT = new Chart(document.getElementById('chartCPT'), {
                 type: 'doughnut',
                 data: {
@@ -195,7 +197,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 options: configDoughnut
             });
 
-            // 3. Velocidade
             chartVelocidade = new Chart(document.getElementById('chartVelocidade'), {
                 type: 'doughnut',
                 data: {
@@ -205,7 +206,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 options: configDoughnut
             });
 
-            // 4. Pico Horário (Com filtro de Turno)
             chartPicoHoras = new Chart(document.getElementById('chartPicoHoras'), {
                 type: 'bar',
                 data: {
@@ -215,7 +215,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 options: configBar
             });
 
-            // 5. Operadores
+            chartAtribuicoes = new Chart(document.getElementById('chartAtribuicoes'), {
+                type: 'bar',
+                data: {
+                    labels: dados.atribuicoes.labels,
+                    datasets: [{ data: dados.atribuicoes.data, backgroundColor: '#f59e0b', borderRadius: 6 }]
+                },
+                options: configBar
+            });
+
             chartOperadores = new Chart(document.getElementById('chartOperadores'), {
                 type: 'bar',
                 data: {
@@ -225,7 +233,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 options: configBar
             });
 
-            // 6. Regiões
             chartRegioes = new Chart(document.getElementById('chartRegioes'), {
                 type: 'bar',
                 data: {
