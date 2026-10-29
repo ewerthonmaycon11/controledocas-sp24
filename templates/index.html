@@ -1,6 +1,17 @@
 {% extends 'base.html' %}
 
 {% block content %}
+<!-- Barra de Pesquisa Global no Topo -->
+<section style="margin-bottom: 2rem;">
+    <form method="GET" action="{{ url_for('index') }}" style="display: flex; gap: 0.75rem; max-width: 600px; margin: 0 auto;">
+        <input type="text" name="q" value="{{ termo_busca }}" placeholder="🔍 Pesquisar por Placa, Motorista, Região, CPT ou Doca..." class="input-plate" style="flex: 1; padding: 12px 16px; font-size: 0.95rem; text-transform: uppercase;">
+        <button type="submit" class="btn-primary" style="width: auto; padding: 0 24px; margin-top: 0;">Buscar</button>
+        {% if termo_busca %}
+            <a href="{{ url_for('index') }}" class="btn-logout" style="display: flex; align-items: center; justify-content: center; background: var(--red-neon); color: #fff; text-decoration: none; padding: 0 16px; border-radius: 10px;">Limpar</a>
+        {% endif %}
+    </form>
+</section>
+
 <!-- Dashboard de Estatísticas em Tempo Real -->
 <section class="metrics-grid">
     <div class="metric-card">
@@ -57,17 +68,15 @@
                     <span class="destination-label" style="margin-top: 6px;">CPT:</span>
                     <span class="destination-value">{{ doca.cpt if doca.cpt else 'NÃO INFORMADO' }}</span>
                     
-                    <!-- Cronômetro Decrescente CPT (Vermelho) -->
                     <div style="margin-top: 6px; font-size: 0.7rem; font-weight: 700; color: #f43f5e;" id="cpt-timer-{{ doca.numero }}" data-cptdatetime="{{ doca.cpt_datetime|default('') }}">
                         ⏳ CPT: Calculando...
                     </div>
 
-                    <!-- Cronômetro Crescente de Chegada (Verde) -->
                     <div style="margin-top: 4px; font-size: 0.7rem; font-weight: 700; color: #10b981;" id="chegada-timer-{{ doca.numero }}" data-chegada="{{ doca.chegada }}">
                         ⏱️ TEMPO NO PÁTIO: 00:00:00
                     </div>
 
-                    <small style="color: var(--text-muted); margin-top: 6px; font-size: 0.65rem; text-align: center; cursor: pointer;">🔍 Clique para ver detalhes</small>
+                    <small style="color: var(--text-muted); margin-top: 6px; font-size: 0.65rem; text-align: center; cursor: pointer;">🔍 Clique para ver detalhes / editar</small>
                 {% else %}
                     <span class="plate-placeholder">LIVRE PARA CARGAMENTO</span>
                 {% endif %}
@@ -83,9 +92,8 @@
                             <input type="text" id="input-chegada-{{ doca.numero }}" class="input-plate" placeholder="CHEGADA (Ex: 22:00)" maxlength="20" style="margin-top: 6px;">
                             <input type="text" id="input-eta-{{ doca.numero }}" class="input-plate" placeholder="ETA" maxlength="20" style="margin-top: 6px;">
                             
-                            <!-- Seletor de CPT com Calendário Real (datetime-local) -->
                             <div style="margin-top: 6px;">
-                                <label style="font-size: 0.65rem; color: var(--text-muted); font-weight: 700; display: block; margin-bottom: 2px;">DATA E HORA CPT (CALENDÁRIO):</label>
+                                <label style="font-size: 0.65rem; color: var(--text-muted); font-weight: 700; display: block; margin-bottom: 2px;">DATA E HORA CPT:</label>
                                 <input type="datetime-local" id="input-cpt-{{ doca.numero }}" class="input-plate" style="color-scheme: dark; font-size: 0.8rem;">
                             </div>
 
@@ -140,17 +148,15 @@
                     <span class="destination-label" style="margin-top: 6px;">CPT:</span>
                     <span class="destination-value">{{ doca.cpt if doca.cpt else 'NÃO INFORMADO' }}</span>
                     
-                    <!-- Cronômetro Decrescente CPT (Vermelho) -->
                     <div style="margin-top: 6px; font-size: 0.7rem; font-weight: 700; color: #f43f5e;" id="cpt-timer-{{ doca.numero }}" data-cptdatetime="{{ doca.cpt_datetime|default('') }}">
                         ⏳ CPT: Calculando...
                     </div>
 
-                    <!-- Cronômetro Crescente de Chegada (Verde) -->
                     <div style="margin-top: 4px; font-size: 0.7rem; font-weight: 700; color: #10b981;" id="chegada-timer-{{ doca.numero }}" data-chegada="{{ doca.chegada }}">
                         ⏱️ TEMPO NO PÁTIO: 00:00:00
                     </div>
 
-                    <small style="color: var(--text-muted); margin-top: 6px; font-size: 0.65rem; text-align: center; cursor: pointer;">🔍 Clique para ver detalhes</small>
+                    <small style="color: var(--text-muted); margin-top: 6px; font-size: 0.65rem; text-align: center; cursor: pointer;">🔍 Clique para ver detalhes / editar</small>
                 {% else %}
                     <span class="plate-placeholder">LIVRE PARA CARGAMENTO</span>
                 {% endif %}
@@ -166,9 +172,8 @@
                             <input type="text" id="input-chegada-{{ doca.numero }}" class="input-plate" placeholder="CHEGADA (Ex: 22:00)" maxlength="20" style="margin-top: 6px;">
                             <input type="text" id="input-eta-{{ doca.numero }}" class="input-plate" placeholder="ETA" maxlength="20" style="margin-top: 6px;">
                             
-                            <!-- Seletor de CPT com Calendário Real (datetime-local) -->
                             <div style="margin-top: 6px;">
-                                <label style="font-size: 0.65rem; color: var(--text-muted); font-weight: 700; display: block; margin-bottom: 2px;">DATA E HORA CPT (CALENDÁRIO):</label>
+                                <label style="font-size: 0.65rem; color: var(--text-muted); font-weight: 700; display: block; margin-bottom: 2px;">DATA E HORA CPT:</label>
                                 <input type="datetime-local" id="input-cpt-{{ doca.numero }}" class="input-plate" style="color-scheme: dark; font-size: 0.8rem;">
                             </div>
 
