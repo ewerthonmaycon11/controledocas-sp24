@@ -1,6 +1,4 @@
-// Atualização em tempo real e controle dinâmico do Pátio Docas
 document.addEventListener('DOMContentLoaded', () => {
-    // Menu Lateral (Sidebar)
     const openSidebarBtn = document.getElementById('open-sidebar');
     const closeSidebarBtn = document.getElementById('close-sidebar');
     const sidebar = document.getElementById('sidebar');
@@ -13,9 +11,9 @@ document.addEventListener('DOMContentLoaded', () => {
         closeSidebarBtn.addEventListener('click', () => sidebar.classList.remove('active'));
     }
 
-    // Event listener global para os cliques nos cards das docas
+    // Clique nos cards para alternar visualização ou abrir edição
     document.body.addEventListener('click', (e) => {
-        if (e.target.closest('input') || e.target.closest('button')) {
+        if (e.target.closest('input') || e.target.closest('button') || e.target.closest('form')) {
             return;
         }
 
@@ -25,7 +23,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const status = card.getAttribute('data-status');
         const numero = card.getAttribute('data-numero');
 
-        // 1. Se a doca estiver LIVRE, abre/fecha o formulário de atribuição
         if (status === 'LIVRE') {
             const form = document.getElementById(`form-${numero}`);
             if (form) {
@@ -35,7 +32,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // 2. Se a doca estiver OCUPADA, alterna entre visualização resumida e detalhada
         if (status === 'OCUPADA') {
             const plateDisplay = document.getElementById(`plate-display-${numero}`);
             if (plateDisplay) {
@@ -69,7 +65,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div style="margin-top: 4px; font-size: 0.7rem; font-weight: 700; color: #10b981;" id="chegada-timer-${numero}" data-chegada="${chegada}">
                             ⏱️ TEMPO NO PÁTIO: 00:00:00
                         </div>
-                        <small style="color: var(--accent-blue); margin-top: 6px; font-size: 0.65rem; text-align: center; cursor: pointer;">🔍 Clique para recolher</small>
+                        <div style="display: flex; gap: 4px; margin-top: 8px;">
+                            <button type="button" class="btn-action btn-edit-open" data-numero="${numero}" style="background: var(--accent-blue); color: #0f172a; flex: 1; font-size: 0.75rem;">✏️ Editar Dados</button>
+                        </div>
+                        <small style="color: var(--accent-blue); margin-top: 4px; font-size: 0.65rem; text-align: center; cursor: pointer;">🔍 Clique para recolher</small>
                     `;
                     plateDisplay.setAttribute('data-detalhes', 'true');
                 } else {
@@ -77,7 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span class="plate-label">PLACA:</span>
                         <span class="plate-value">${placa || 'NÃO INFORMADA'}</span>
                         <span class="destination-label" style="margin-top: 6px;">REGIÃO:</span>
-                        <span class="destination-value">${regiao || 'NÃO INFORMADA'}</span>
+                        <span class="destination-value">${regiao || 'NÃO INFORMADO'}</span>
                         <span class="destination-label" style="margin-top: 6px;">CPT:</span>
                         <span class="destination-value">${cpt || 'NÃO INFORMADO'}</span>
                         <div style="margin-top: 6px; font-size: 0.7rem; font-weight: 700; color: #f43f5e;" id="cpt-timer-${numero}" data-cptdatetime="${cptDatetime}">
@@ -86,7 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div style="margin-top: 4px; font-size: 0.7rem; font-weight: 700; color: #10b981;" id="chegada-timer-${numero}" data-chegada="${chegada}">
                             ⏱️ TEMPO NO PÁTIO: 00:00:00
                         </div>
-                        <small style="color: var(--text-muted); margin-top: 6px; font-size: 0.65rem; text-align: center; cursor: pointer;">🔍 Clique para ver detalhes</small>
+                        <small style="color: var(--text-muted); margin-top: 6px; font-size: 0.65rem; text-align: center; cursor: pointer;">🔍 Clique para ver detalhes / editar</small>
                     `;
                     plateDisplay.setAttribute('data-detalhes', 'false');
                 }
@@ -95,53 +94,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Eventos específicos para Botões de Ação
+    // Eventos para Botões de Ação, Edição e Salvamento
     document.body.addEventListener('click', (e) => {
-        if (e.target.classList.contains('action-btn-cancel')) {
+        if (e.target.classList.contains('action-btn-cancel') || e.target.classList.contains('btn-edit-cancel')) {
             const numero = e.target.getAttribute('data-numero');
-            const form = document.getElementById(`form-${numero}`);
-            if (form) form.style.display = 'none';
+            fetchDocasStatus(); // Restaura o card original
+        }
+
+        if (e.target.classList.contains('btn-edit-open')) {
+            const numero = e.target.getAttribute('data-numero');
+            abrirFormularioEdicao(numero);
         }
 
         if (e.target.classList.contains('action-btn-occupy')) {
             const numero = e.target.getAttribute('data-numero');
-            
-            const nomeInput = document.getElementById(`input-nome-${numero}`);
-            const regiaoInput = document.getElementById(`input-regiao-${numero}`);
-            const placaInput = document.getElementById(`input-placa-${numero}`);
-            const chegadaInput = document.getElementById(`input-chegada-${numero}`);
-            const etaInput = document.getElementById(`input-eta-${numero}`);
-            const cptInput = document.getElementById(`input-cpt-${numero}`);
+            enviarDadosDoca(numero, 'OCUPADA', 'status');
+        }
 
-            const nome = nomeInput ? nomeInput.value.trim() : '';
-            const regiao = regiaoInput ? regiaoInput.value.trim() : '';
-            const placa = placaInput ? placaInput.value.trim() : '';
-            const chegada = chegadaInput ? chegadaInput.value.trim() : '';
-            const eta = etaInput ? etaInput.value.trim() : '';
-            
-            let cptStr = '';
-            let cptDatetime = '';
-
-            if (cptInput && cptInput.value) {
-                cptDatetime = cptInput.value; // Formato yyyy-mm-ddThh:mm vindo do datetime-local
-                // Converte para exibição amigável (DD/MM HH:MM)
-                const dataObj = new Date(cptDatetime);
-                if (!isNaN(dataObj)) {
-                    const dia = String(dataObj.getDate()).padStart(2, '0');
-                    const mes = String(dataObj.getMonth() + 1).padStart(2, '0');
-                    const hora = String(dataObj.getHours()).padStart(2, '0');
-                    const min = String(dataObj.getMinutes()).padStart(2, '0');
-                    cptStr = `${dia}/${mes} ${hora}:${min}`;
-                }
-            }
-
-            if (!placa) {
-                alert('Por favor, informe a placa do veículo.');
-                if (placaInput) placaInput.focus();
-                return;
-            }
-
-            alterarStatusComDados(numero, 'OCUPADA', { nome, regiao, placa, chegada, eta, cpt: cptStr, cpt_datetime: cptDatetime });
+        if (e.target.classList.contains('btn-edit-save')) {
+            const numero = e.target.getAttribute('data-numero');
+            enviarDadosDoca(numero, 'OCUPADA', 'editar');
         }
 
         if (e.target.classList.contains('action-btn-release')) {
@@ -150,15 +122,86 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Polling a cada 3 segundos para sincronizar status com o servidor
     setInterval(fetchDocasStatus, 3000);
 
-    // Atualiza os cronômetros (CPT vermelho e Chegada verde) a cada 1 segundo em tempo real
     setInterval(() => {
         atualizarCronometrosCPT();
         atualizarCronometrosChegada();
     }, 1000);
 });
+
+function abrirFormularioEdicao(numero) {
+    const plateDisplay = document.getElementById(`plate-display-${numero}`);
+    if (!plateDisplay) return;
+
+    const placa = plateDisplay.getAttribute('data-placa') || '';
+    const regiao = plateDisplay.getAttribute('data-regiao') || '';
+    const nome = plateDisplay.getAttribute('data-nome') || '';
+    const chegada = plateDisplay.getAttribute('data-chegada') || '';
+    const eta = plateDisplay.getAttribute('data-eta') || '';
+    const cptDatetime = plateDisplay.getAttribute('data-cptdatetime') || '';
+
+    plateDisplay.innerHTML = `
+        <div class="plate-input-group" style="text-align: left;">
+            <label style="font-size: 0.65rem; color: var(--text-muted);">EDITAR NOME:</label>
+            <input type="text" id="edit-nome-${numero}" class="input-plate" value="${nome}" maxlength="100" style="font-size: 0.8rem; padding: 6px;">
+            <label style="font-size: 0.65rem; color: var(--text-muted); margin-top: 4px;">EDITAR REGIÃO:</label>
+            <input type="text" id="edit-regiao-${numero}" class="input-plate" value="${regiao}" maxlength="100" style="font-size: 0.8rem; padding: 6px;">
+            <label style="font-size: 0.65rem; color: var(--text-muted); margin-top: 4px;">EDITAR PLACA:</label>
+            <input type="text" id="edit-placa-${numero}" class="input-plate" value="${placa}" maxlength="10" style="font-size: 0.8rem; padding: 6px;">
+            <label style="font-size: 0.65rem; color: var(--text-muted); margin-top: 4px;">EDITAR CHEGADA:</label>
+            <input type="text" id="edit-chegada-${numero}" class="input-plate" value="${chegada}" maxlength="20" style="font-size: 0.8rem; padding: 6px;">
+            <label style="font-size: 0.65rem; color: var(--text-muted); margin-top: 4px;">EDITAR ETA:</label>
+            <input type="text" id="edit-eta-${numero}" class="input-plate" value="${eta}" maxlength="20" style="font-size: 0.8rem; padding: 6px;">
+            <label style="font-size: 0.65rem; color: var(--text-muted); margin-top: 4px;">EDITAR CPT:</label>
+            <input type="datetime-local" id="edit-cpt-${numero}" class="input-plate" value="${cptDatetime}" style="color-scheme: dark; font-size: 0.75rem; padding: 6px;">
+            <div style="display: flex; gap: 4px; margin-top: 8px;">
+                <button type="button" class="btn-action btn-edit-save" data-numero="${numero}" style="background: var(--green-neon); color: #090d16; flex: 1;">Salvar</button>
+                <button type="button" class="btn-action btn-edit-cancel" data-numero="${numero}" style="background: var(--red-neon); color: #fff; width: 40px;">X</button>
+            </div>
+        </div>
+    `;
+}
+
+function enviarDadosDoca(numero, statusDoca, acaoTipo) {
+    const prefix = acaoTipo === 'editar' ? 'edit' : 'input';
+    
+    const nomeInput = document.getElementById(`${prefix}-nome-${numero}`);
+    const regiaoInput = document.getElementById(`${prefix}-regiao-${numero}`);
+    const placaInput = document.getElementById(`${prefix}-placa-${numero}`);
+    const chegadaInput = document.getElementById(`${prefix}-chegada-${numero}`);
+    const etaInput = document.getElementById(`${prefix}-eta-${numero}`);
+    const cptInput = document.getElementById(`${prefix}-cpt-${numero}`);
+
+    const nome = nomeInput ? nomeInput.value.trim() : '';
+    const regiao = regiaoInput ? regiaoInput.value.trim() : '';
+    const placa = placaInput ? placaInput.value.trim() : '';
+    const chegada = chegadaInput ? chegadaInput.value.trim() : '';
+    const eta = etaInput ? etaInput.value.trim() : '';
+    
+    let cptStr = '';
+    let cptDatetime = '';
+
+    if (cptInput && cptInput.value) {
+        cptDatetime = cptInput.value;
+        const dataObj = new Date(cptDatetime);
+        if (!isNaN(dataObj)) {
+            const dia = String(dataObj.getDate()).padStart(2, '0');
+            const mes = String(dataObj.getMonth() + 1).padStart(2, '0');
+            const hora = String(dataObj.getHours()).padStart(2, '0');
+            const min = String(dataObj.getMinutes()).padStart(2, '0');
+            cptStr = `${dia}/${mes} ${hora}:${min}`;
+        }
+    }
+
+    if (!placa) {
+        alert('Por favor, informe a placa do veículo.');
+        if (placaInput) placaInput.focus();
+        return;
+    }
+
+    alterarStatusComDados(numero, statusDoca, { nome, regiao, placa, chegada, eta, cpt: cptStr, cpt_datetime: cptDatetime, acao: acaoTipo });
+}
 
 async function alterarStatusComDados(numeroDoca, novoStatus, dados) {
     try {
@@ -175,7 +218,7 @@ async function alterarStatusComDados(numeroDoca, novoStatus, dados) {
                 fetchDocasStatus();
             }
         } else {
-            alert('Erro ao atualizar a doca. Verifique sua sessão de login.');
+            alert('Erro ao atualizar a doca.');
         }
     } catch (err) {
         console.error('Erro de conexão:', err);
@@ -228,7 +271,10 @@ function atualizarCardNaTela(doca) {
                     <div style="margin-top: 4px; font-size: 0.7rem; font-weight: 700; color: #10b981;" id="chegada-timer-${doca.numero}" data-chegada="${doca.chegada || ''}">
                         ⏱️ TEMPO NO PÁTIO: 00:00:00
                     </div>
-                    <small style="color: var(--accent-blue); margin-top: 6px; font-size: 0.65rem; text-align: center; cursor: pointer;">🔍 Clique para recolher</small>
+                    <div style="display: flex; gap: 4px; margin-top: 8px;">
+                        <button type="button" class="btn-action btn-edit-open" data-numero="${doca.numero}" style="background: var(--accent-blue); color: #0f172a; flex: 1; font-size: 0.75rem;">✏️ Editar Dados</button>
+                    </div>
+                    <small style="color: var(--accent-blue); margin-top: 4px; font-size: 0.65rem; text-align: center; cursor: pointer;">🔍 Clique para recolher</small>
                 `;
             } else {
                 plateDisplay.innerHTML = `
@@ -244,7 +290,7 @@ function atualizarCardNaTela(doca) {
                     <div style="margin-top: 4px; font-size: 0.7rem; font-weight: 700; color: #10b981;" id="chegada-timer-${doca.numero}" data-chegada="${doca.chegada || ''}">
                         ⏱️ TEMPO NO PÁTIO: 00:00:00
                     </div>
-                    <small style="color: var(--text-muted); margin-top: 6px; font-size: 0.65rem; text-align: center; cursor: pointer;">🔍 Clique para ver detalhes</small>
+                    <small style="color: var(--text-muted); margin-top: 6px; font-size: 0.65rem; text-align: center; cursor: pointer;">🔍 Clique para ver detalhes / editar</small>
                 `;
             }
         } else {
@@ -267,12 +313,10 @@ function atualizarCardNaTela(doca) {
                     <input type="text" id="input-placa-${doca.numero}" class="input-plate" placeholder="PLACA (ABC-1D23)" maxlength="10" style="margin-top: 6px;">
                     <input type="text" id="input-chegada-${doca.numero}" class="input-plate" placeholder="CHEGADA (Ex: 22:00)" maxlength="20" style="margin-top: 6px;">
                     <input type="text" id="input-eta-${doca.numero}" class="input-plate" placeholder="ETA" maxlength="20" style="margin-top: 6px;">
-                    
                     <div style="margin-top: 6px;">
-                        <label style="font-size: 0.65rem; color: var(--text-muted); font-weight: 700; display: block; margin-bottom: 2px;">DATA E HORA CPT (CALENDÁRIO):</label>
+                        <label style="font-size: 0.65rem; color: var(--text-muted); font-weight: 700; display: block; margin-bottom: 2px;">DATA E HORA CPT:</label>
                         <input type="datetime-local" id="input-cpt-${doca.numero}" class="input-plate" style="color-scheme: dark; font-size: 0.8rem;">
                     </div>
-
                     <div style="display: flex; gap: 4px; margin-top: 8px;">
                         <button type="button" class="btn-action action-btn-occupy" data-numero="${doca.numero}" style="flex: 1;">Atribuir</button>
                         <button type="button" class="btn-action action-btn-cancel" data-numero="${doca.numero}" style="background: var(--red-neon); color: #fff; width: 40px;">X</button>
@@ -291,6 +335,10 @@ function atualizarCardNaTela(doca) {
 async function fetchDocasStatus() {
     const formularioAberto = Array.from(document.querySelectorAll('.form-atribuicao')).some(f => f.style.display === 'flex');
     if (formularioAberto) return;
+
+    // Se houver texto na barra de busca ativa, não faz polling automático para não sobrescrever a listagem filtrada
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('q') && urlParams.get('q').trim() !== '') return;
 
     try {
         const response = await fetch('/api/docas');
@@ -333,7 +381,6 @@ async function fetchDocasStatus() {
     }
 }
 
-// Cronômetro CPT (Decrescente - Vermelho) usando a data/hora exata do calendário
 function atualizarCronometrosCPT() {
     const timers = document.querySelectorAll('[id^="cpt-timer-"]');
     
@@ -371,7 +418,6 @@ function atualizarCronometrosCPT() {
     });
 }
 
-// Cronômetro de Chegada (Crescente - Verde)
 function atualizarCronometrosChegada() {
     const timers = document.querySelectorAll('[id^="chegada-timer-"]');
     
