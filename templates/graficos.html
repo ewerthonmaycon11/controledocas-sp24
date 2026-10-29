@@ -6,59 +6,93 @@
 </div>
 
 <!-- Filtro de Período -->
-<div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 1.5rem; gap: 10px;">
+<div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 1.5rem; gap: 10px; flex-wrap: wrap;">
     <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 700;">FILTRAR PERÍODO:</span>
     <button class="btn-periodo active" data-periodo="dia" style="padding: 8px 16px; border-radius: 8px; border: 1px solid var(--accent-blue); background: var(--accent-blue); color: #090d16; font-weight: 700; cursor: pointer;">Hoje</button>
     <button class="btn-periodo" data-periodo="semana" style="padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-muted); font-weight: 700; cursor: pointer;">Últimos 7 Dias</button>
     <button class="btn-periodo" data-periodo="mes" style="padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-muted); font-weight: 700; cursor: pointer;">Últimos 30 Dias</button>
 </div>
 
-<!-- Cards com Métricas Gerais  -->
+<!-- Cards com Métricas Gerais -->
 <section class="metrics-grid" style="margin-bottom: 2rem;">
     <div class="metric-card">
         <span class="metric-title">TOTAL DE CARREGAMENTOS</span>
         <span class="metric-value" id="kpi-total">0</span>
     </div>
     <div class="metric-card success">
-        <span class="metric-title">TEMPO MÉDIO NO PÁTIO</span>
+        <span class="metric-title">TEMPO MÉDIO GERAL NO PÁTIO</span>
         <span class="metric-value" id="kpi-tempo-medio">0 min</span>
+    </div>
+    <div class="metric-card hub">
+        <span class="metric-title">TEMPO MÉDIO HUB</span>
+        <span class="metric-value" id="kpi-hub-medio">0 min</span>
+    </div>
+    <div class="metric-card soc">
+        <span class="metric-title">TEMPO MÉDIO SOC</span>
+        <span class="metric-value" id="kpi-soc-medio">0 min</span>
     </div>
 </section>
 
-<!-- Grid de Gráficos Circulares Profissionais -->
-<section style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
-    <!-- Gráfico 1: Veículos por Setor -->
+<!-- Grid de Gráficos Analíticos -->
+<section style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+    
+    <!-- 1. Veículos por Setor -->
     <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem; text-align: center;">
-        <h3 style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1rem; text-transform: uppercase;">Veículos por Setor (HUB vs SOC)</h3>
+        <h3 style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; text-transform: uppercase;">Veículos por Setor (HUB vs SOC)</h3>
         <div style="position: relative; height: 260px; display: flex; align-items: center; justify-content: center;">
             <canvas id="chartSetores"></canvas>
         </div>
     </div>
 
-    <!-- Gráfico 2: Cumprimento de CPT -->
+    <!-- 2. Status CPT -->
     <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem; text-align: center;">
-        <h3 style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1rem; text-transform: uppercase;">Status CPT (No Prazo vs Fora de Horário)</h3>
+        <h3 style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; text-transform: uppercase;">Cumprimento de CPT (No Prazo x Atrasado)</h3>
         <div style="position: relative; height: 260px; display: flex; align-items: center; justify-content: center;">
             <canvas id="chartCPT"></canvas>
         </div>
     </div>
 
-    <!-- Gráfico 3: Velocidade de Permanência/Carregamento -->
+    <!-- 3. Velocidade de Permanência -->
     <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem; text-align: center;">
-        <h3 style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1rem; text-transform: uppercase;">Velocidade no Pátio (Entrada x Saída)</h3>
+        <h3 style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; text-transform: uppercase;">Velocidade de Permanência no Pátio</h3>
         <div style="position: relative; height: 260px; display: flex; align-items: center; justify-content: center;">
             <canvas id="chartVelocidade"></canvas>
         </div>
     </div>
+
+    <!-- 4. Pico de Ocupação por Hora -->
+    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem; text-align: center; grid-column: 1 / -1;">
+        <h3 style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; text-transform: uppercase;">Fluxo e Pico de Chegadas por Horário (Hora a Hora)</h3>
+        <div style="position: relative; height: 280px; display: flex; align-items: center; justify-content: center;">
+            <canvas id="chartPicoHoras"></canvas>
+        </div>
+    </div>
+
+    <!-- 5. Produtividade por Operador -->
+    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem; text-align: center;">
+        <h3 style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; text-transform: uppercase;">Liberações por Operador (Produtividade)</h3>
+        <div style="position: relative; height: 260px; display: flex; align-items: center; justify-content: center;">
+            <canvas id="chartOperadores"></canvas>
+        </div>
+    </div>
+
+    <!-- 6. Principais Regiões de Destino -->
+    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem; text-align: center;">
+        <h3 style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; text-transform: uppercase;">Top Regiões de Destino</h3>
+        <div style="position: relative; height: 260px; display: flex; align-items: center; justify-content: center;">
+            <canvas id="chartRegioes"></canvas>
+        </div>
+    </div>
+
 </section>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    let chartSetores, chartCPT, chartVelocidade;
+    let chartSetores, chartCPT, chartVelocidade, chartPicoHoras, chartOperadores, chartRegioes;
 
     const btnPeriodos = document.querySelectorAll('.btn-periodo');
     btnPeriodos.forEach(btn => {
-        btn.addEventListener('click', (e) => {
+        btn.addEventListener('click', () => {
             btnPeriodos.forEach(b => {
                 b.style.background = 'var(--bg-card)';
                 b.style.color = 'var(--text-muted)';
@@ -78,69 +112,98 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!res.ok) return;
             const dados = await res.json();
 
+            // KPIs
             document.getElementById('kpi-total').innerText = dados.total_operacoes;
             document.getElementById('kpi-tempo-medio').innerText = `${dados.tempo_medio_minutos} min`;
+            document.getElementById('kpi-hub-medio').innerText = `${dados.tempo_setor.HUB} min`;
+            document.getElementById('kpi-soc-medio').innerText = `${dados.tempo_setor.SOC} min`;
 
-            const configComum = {
+            const configDoughnut = {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'bottom',
-                        labels: { color: '#94a3b8', font: { family: 'Inter', size: 11 } }
-                    }
+                plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { family: 'Inter', size: 11 } } } }
+            };
+
+            const configBar = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                    y: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } }
                 }
             };
 
-            // Destruir gráficos anteriores se existirem
+            // Destruir gráficos anteriores
             if (chartSetores) chartSetores.destroy();
             if (chartCPT) chartCPT.destroy();
             if (chartVelocidade) chartVelocidade.destroy();
+            if (chartPicoHoras) chartPicoHoras.destroy();
+            if (chartOperadores) chartOperadores.destroy();
+            if (chartRegioes) chartRegioes.destroy();
 
-            // Gráfico Setores
+            // 1. Setores
             chartSetores = new Chart(document.getElementById('chartSetores'), {
                 type: 'doughnut',
                 data: {
-                    labels: ['HUB (Docas 1-16)', 'SOC (Docas 17-40)'],
-                    datasets: [{
-                        data: [dados.setores.HUB, dados.setores.SOC],
-                        backgroundColor: ['#00f2fe', '#3b82f6'],
-                        borderWidth: 0
-                    }]
+                    labels: ['HUB', 'SOC'],
+                    datasets: [{ data: [dados.setores.HUB, dados.setores.SOC], backgroundColor: ['#8b5cf6', '#f59e0b'], borderWidth: 0 }]
                 },
-                options: configComum
+                options: configDoughnut
             });
 
-            // Gráfico CPT
+            // 2. CPT
             chartCPT = new Chart(document.getElementById('chartCPT'), {
                 type: 'doughnut',
                 data: {
-                    labels: ['No Prazo', 'Fora de Horário (Atrasado)'],
-                    datasets: [{
-                        data: [dados.cpt.no_prazo, dados.cpt.fora_prazo],
-                        backgroundColor: ['#10b981', '#f43f5e'],
-                        borderWidth: 0
-                    }]
+                    labels: ['No Prazo', 'Fora de Horário'],
+                    datasets: [{ data: [dados.cpt.no_prazo, dados.cpt.fora_prazo], backgroundColor: ['#10b981', '#f43f5e'], borderWidth: 0 }]
                 },
-                options: configComum
+                options: configDoughnut
             });
 
-            // Gráfico Velocidade
+            // 3. Velocidade
             chartVelocidade = new Chart(document.getElementById('chartVelocidade'), {
                 type: 'doughnut',
                 data: {
-                    labels: ['Rápido (Até 1h)', 'Médio (1h a 2h)', 'Lento (Acima de 2h)'],
-                    datasets: [{
-                        data: [dados.velocidade.ate_1h, dados.velocidade.de_1h_2h, dados.velocidade.acima_2h],
-                        backgroundColor: ['#10b981', '#f59e0b', '#f43f5e'],
-                        borderWidth: 0
-                    }]
+                    labels: ['Rápido (<=1h)', 'Médio (1-2h)', 'Lento (>2h)'],
+                    datasets: [{ data: [dados.velocidade.ate_1h, dados.velocidade.de_1h_2h, dados.velocidade.acima_2h], backgroundColor: ['#10b981', '#0ea5e9', '#f43f5e'], borderWidth: 0 }]
                 },
-                options: configComum
+                options: configDoughnut
+            });
+
+            // 4. Pico Horário
+            chartPicoHoras = new Chart(document.getElementById('chartPicoHoras'), {
+                type: 'bar',
+                data: {
+                    labels: dados.pico_horas.labels,
+                    datasets: [{ data: dados.pico_horas.data, backgroundColor: '#0ea5e9', borderRadius: 6 }]
+                },
+                options: configBar
+            });
+
+            // 5. Operadores
+            chartOperadores = new Chart(document.getElementById('chartOperadores'), {
+                type: 'bar',
+                data: {
+                    labels: dados.operadores.labels,
+                    datasets: [{ data: dados.operadores.data, backgroundColor: '#8b5cf6', borderRadius: 6 }]
+                },
+                options: configBar
+            });
+
+            // 6. Regiões
+            chartRegioes = new Chart(document.getElementById('chartRegioes'), {
+                type: 'bar',
+                data: {
+                    labels: dados.regioes.labels,
+                    datasets: [{ data: dados.regioes.data, backgroundColor: '#10b981', borderRadius: 6 }]
+                },
+                options: configBar
             });
 
         } catch (err) {
-            console.error('Erro ao carregar gráficos:', err);
+            console.error('Erro ao carregar dados dos gráficos:', err);
         }
     }
 
