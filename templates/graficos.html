@@ -5,7 +5,7 @@
     <h2>DASHBOARD DE DESEMPENHO E GRÁFICOS ANALÍTICOS</h2>
 </div>
 
-<!-- Filtro de Período -->
+<!-- Filtro de Período Geral -->
 <div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 1.5rem; gap: 10px; flex-wrap: wrap;">
     <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 700;">FILTRAR PERÍODO:</span>
     <button class="btn-periodo active" data-periodo="dia" style="padding: 8px 16px; border-radius: 8px; border: 1px solid var(--accent-blue); background: var(--accent-blue); color: #090d16; font-weight: 700; cursor: pointer;">Hoje</button>
@@ -60,9 +60,20 @@
         </div>
     </div>
 
-    <!-- 4. Pico de Ocupação por Hora -->
+    <!-- 4. Pico de Ocupação por Hora (Com Filtro de Turnos Acima) -->
     <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem; text-align: center; grid-column: 1 / -1;">
-        <h3 style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; text-transform: uppercase;">Fluxo e Pico de Chegadas por Horário (Hora a Hora)</h3>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 10px;">
+            <h3 style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; margin: 0;">Fluxo e Pico de Chegadas por Horário</h3>
+            
+            <!-- Botões de Seleção de Turno -->
+            <div style="display: flex; gap: 6px;">
+                <button class="btn-turno active" data-turno="geral" style="padding: 5px 12px; border-radius: 6px; border: 1px solid var(--accent-blue); background: var(--accent-blue); color: #090d16; font-size: 0.75rem; font-weight: 700; cursor: pointer;">Geral</button>
+                <button class="btn-turno" data-turno="t1" style="padding: 5px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-muted); font-size: 0.75rem; font-weight: 700; cursor: pointer;">T1 (05:25 - 14:00)</button>
+                <button class="btn-turno" data-turno="t2" style="padding: 5px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-muted); font-size: 0.75rem; font-weight: 700; cursor: pointer;">T2 (14:00 - 21:00)</button>
+                <button class="btn-turno" data-turno="t3" style="padding: 5px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-muted); font-size: 0.75rem; font-weight: 700; cursor: pointer;">T3 (21:00 - 05:55)</button>
+            </div>
+        </div>
+
         <div style="position: relative; height: 280px; display: flex; align-items: center; justify-content: center;">
             <canvas id="chartPicoHoras"></canvas>
         </div>
@@ -89,7 +100,10 @@
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     let chartSetores, chartCPT, chartVelocidade, chartPicoHoras, chartOperadores, chartRegioes;
+    let periodoAtual = 'dia';
+    let turnoAtual = 'geral';
 
+    // Eventos de Período
     const btnPeriodos = document.querySelectorAll('.btn-periodo');
     btnPeriodos.forEach(btn => {
         btn.addEventListener('click', () => {
@@ -102,13 +116,32 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.style.color = '#090d16';
             btn.style.borderColor = 'var(--accent-blue)';
 
-            carregarGraficos(btn.getAttribute('data-periodo'));
+            periodoAtual = btn.getAttribute('data-periodo');
+            carregarGraficos();
         });
     });
 
-    async function carregarGraficos(periodo = 'dia') {
+    // Eventos de Turno para o gráfico de barras
+    const btnTurnos = document.querySelectorAll('.btn-turno');
+    btnTurnos.forEach(btn => {
+        btn.addEventListener('click', () => {
+            btnTurnos.forEach(b => {
+                b.style.background = 'var(--bg-card)';
+                b.style.color = 'var(--text-muted)';
+                b.style.borderColor = 'var(--border-color)';
+            });
+            btn.style.background = 'var(--accent-blue)';
+            btn.style.color = '#090d16';
+            btn.style.borderColor = 'var(--accent-blue)';
+
+            turnoAtual = btn.getAttribute('data-turno');
+            carregarGraficos();
+        });
+    });
+
+    async function carregarGraficos() {
         try {
-            const res = await fetch(`/api/graficos/dados?periodo=${periodo}`);
+            const res = await fetch(`/api/graficos/dados?periodo=${periodoAtual}&turno=${turnoAtual}`);
             if (!res.ok) return;
             const dados = await res.json();
 
@@ -172,7 +205,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 options: configDoughnut
             });
 
-            // 4. Pico Horário
+            // 4. Pico Horário (Com filtro de Turno)
             chartPicoHoras = new Chart(document.getElementById('chartPicoHoras'), {
                 type: 'bar',
                 data: {
@@ -207,7 +240,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    carregarGraficos('dia');
+    carregarGraficos();
 });
 </script>
 {% endblock %}
