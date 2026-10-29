@@ -1,0 +1,150 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="sector-divider" style="margin-bottom: 1.5rem;">
+    <h2>DASHBOARD DE DESEMPENHO E GRÁFICOS ANALÍTICOS</h2>
+</div>
+
+<!-- Filtro de Período -->
+<div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 1.5rem; gap: 10px;">
+    <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 700;">FILTRAR PERÍODO:</span>
+    <button class="btn-periodo active" data-periodo="dia" style="padding: 8px 16px; border-radius: 8px; border: 1px solid var(--accent-blue); background: var(--accent-blue); color: #090d16; font-weight: 700; cursor: pointer;">Hoje</button>
+    <button class="btn-periodo" data-periodo="semana" style="padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-muted); font-weight: 700; cursor: pointer;">Últimos 7 Dias</button>
+    <button class="btn-periodo" data-periodo="mes" style="padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-muted); font-weight: 700; cursor: pointer;">Últimos 30 Dias</button>
+</div>
+
+<!-- Cards com Métricas Gerais -->
+<section class="metrics-grid" style="margin-bottom: 2rem;">
+    <div class="metric-card">
+        <span class="metric-title">TOTAL DE CARREGAMENTOS</span>
+        <span class="metric-value" id="kpi-total">0</span>
+    </div>
+    <div class="metric-card success">
+        <span class="metric-title">TEMPO MÉDIO NO PÁTIO</span>
+        <span class="metric-value" id="kpi-tempo-medio">0 min</span>
+    </div>
+</section>
+
+<!-- Grid de Gráficos Circulares Profissionais -->
+<section style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+    <!-- Gráfico 1: Veículos por Setor -->
+    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem; text-align: center;">
+        <h3 style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1rem; text-transform: uppercase;">Veículos por Setor (HUB vs SOC)</h3>
+        <div style="position: relative; height: 260px; display: flex; align-items: center; justify-content: center;">
+            <canvas id="chartSetores"></canvas>
+        </div>
+    </div>
+
+    <!-- Gráfico 2: Cumprimento de CPT -->
+    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem; text-align: center;">
+        <h3 style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1rem; text-transform: uppercase;">Status CPT (No Prazo vs Fora de Horário)</h3>
+        <div style="position: relative; height: 260px; display: flex; align-items: center; justify-content: center;">
+            <canvas id="chartCPT"></canvas>
+        </div>
+    </div>
+
+    <!-- Gráfico 3: Velocidade de Permanência/Carregamento -->
+    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem; text-align: center;">
+        <h3 style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1rem; text-transform: uppercase;">Velocidade no Pátio (Entrada x Saída)</h3>
+        <div style="position: relative; height: 260px; display: flex; align-items: center; justify-content: center;">
+            <canvas id="chartVelocidade"></canvas>
+        </div>
+    </div>
+</section>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    let chartSetores, chartCPT, chartVelocidade;
+
+    const btnPeriodos = document.querySelectorAll('.btn-periodo');
+    btnPeriodos.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            btnPeriodos.forEach(b => {
+                b.style.background = 'var(--bg-card)';
+                b.style.color = 'var(--text-muted)';
+                b.style.borderColor = 'var(--border-color)';
+            });
+            btn.style.background = 'var(--accent-blue)';
+            btn.style.color = '#090d16';
+            btn.style.borderColor = 'var(--accent-blue)';
+
+            carregarGraficos(btn.getAttribute('data-periodo'));
+        });
+    });
+
+    async function carregarGraficos(periodo = 'dia') {
+        try {
+            const res = await fetch(`/api/graficos/dados?periodo=${periodo}`);
+            if (!res.ok) return;
+            const dados = await res.json();
+
+            document.getElementById('kpi-total').innerText = dados.total_operacoes;
+            document.getElementById('kpi-tempo-medio').innerText = `${dados.tempo_medio_minutos} min`;
+
+            const configComum = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { color: '#94a3b8', font: { family: 'Inter', size: 11 } }
+                    }
+                }
+            };
+
+            // Destruir gráficos anteriores se existirem
+            if (chartSetores) chartSetores.destroy();
+            if (chartCPT) chartCPT.destroy();
+            if (chartVelocidade) chartVelocidade.destroy();
+
+            // Gráfico Setores
+            chartSetores = new Chart(document.getElementById('chartSetores'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['HUB (Docas 1-16)', 'SOC (Docas 17-40)'],
+                    datasets: [{
+                        data: [dados.setores.HUB, dados.setores.SOC],
+                        backgroundColor: ['#00f2fe', '#3b82f6'],
+                        borderWidth: 0
+                    }]
+                },
+                options: configComum
+            });
+
+            // Gráfico CPT
+            chartCPT = new Chart(document.getElementById('chartCPT'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['No Prazo', 'Fora de Horário (Atrasado)'],
+                    datasets: [{
+                        data: [dados.cpt.no_prazo, dados.cpt.fora_prazo],
+                        backgroundColor: ['#10b981', '#f43f5e'],
+                        borderWidth: 0
+                    }]
+                },
+                options: configComum
+            });
+
+            // Gráfico Velocidade
+            chartVelocidade = new Chart(document.getElementById('chartVelocidade'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Rápido (Até 1h)', 'Médio (1h a 2h)', 'Lento (Acima de 2h)'],
+                    datasets: [{
+                        data: [dados.velocidade.ate_1h, dados.velocidade.de_1h_2h, dados.velocidade.acima_2h],
+                        backgroundColor: ['#10b981', '#f59e0b', '#f43f5e'],
+                        borderWidth: 0
+                    }]
+                },
+                options: configComum
+            });
+
+        } catch (err) {
+            console.error('Erro ao carregar gráficos:', err);
+        }
+    }
+
+    carregarGraficos('dia');
+});
+</script>
+{% endblock %}
