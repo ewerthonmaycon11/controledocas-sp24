@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="sector-divider" style="margin-bottom: 1.5rem;">
+    <h2>HISTÓRICO DE ENTRADAS DE DOCAS (MÁXIMO 2 DIAS)</h2>
+</div>
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 10px;">
+    <div style="display: flex; gap: 10px;">
+        <a href="{{ url_for('exportar_historico_entradas', formato='pdf', data=data_selecionada) }}" class="btn-action" style="background: #e11d48; color: #fff; padding: 8px 16px; text-decoration: none; border-radius: 6px; font-weight: 700; font-size: 0.8rem;">
+            📄 Baixar Histórico em PDF
+        </a>
+        <a href="{{ url_for('exportar_historico_entradas', formato='txt', data=data_selecionada) }}" class="btn-action" style="background: var(--accent-blue); color: #0f172a; padding: 8px 16px; text-decoration: none; border-radius: 6px; font-weight: 700; font-size: 0.8rem;">
+            💾 Baixar Histórico em TXT
+        </a>
+    </div>
+
+    <form method="GET" action="{{ url_for('historico_entradas_page') }}" style="display: flex; align-items: center; gap: 8px;">
+        <label style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700;">SELECIONAR DIA:</label>
+        <input type="date" name="data" value="{{ data_selecionada }}" onchange="this.form.submit()" class="input-plate" style="padding: 6px 10px; font-size: 0.85rem; color-scheme: dark;">
+    </form>
+</div>
+
+<div style="overflow-x: auto; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 1rem;">
+    <table style="width: 100%; border-collapse: collapse; text-align: center; color: var(--text-main); font-size: 0.8rem;">
+        <thead>
+            <tr style="border-bottom: 2px solid var(--border-color); color: var(--text-muted); text-transform: uppercase;">
+                <th style="padding: 10px;">DOCA</th>
+                <th style="padding: 10px;">TIPO</th>
+                <th style="padding: 10px;">PLACA</th>
+                <th style="padding: 10px;">MOTORISTA / NOME</th>
+                <th style="padding: 10px;">REGIÃO</th>
+                <th style="padding: 10px;">HORÁRIO CHEGADA</th>
+                <th style="padding: 10px;">ATRIBUÍDO POR</th>
+                <th style="padding: 10px;">CPT</th>
+                <th style="padding: 10px;">DATA REGISTRO</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if registros %}
+                {% for r in registros %}
+                <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                    <td style="padding: 10px; font-weight: 700;">DOCA {{ r.doca_numero }}</td>
+                    <td style="padding: 10px;"><span class="dock-tag {{ r.tipo.lower() }}">{{ r.tipo }}</span></td>
+                    <td style="padding: 10px; font-weight: 700; color: #facc15;">{{ r.placa if r.placa else 'N/A' }}</td>
+                    <td style="padding: 10px;">{{ r.nome if r.nome else 'N/A' }}</td>
+                    <td style="padding: 10px;">{{ r.regiao if r.regiao else 'N/A' }}</td>
+                    <td style="padding: 10px; color: #10b981;">{{ r.chegada if r.chegada else 'N/A' }}</td>
+                    <td style="padding: 10px; color: var(--accent-blue); font-weight: 700;">{{ r.usuario_atribuicao if r.usuario_atribuicao else 'SISTEMA' }}</td>
+                    <td style="padding: 10px;">{{ r.cpt if r.cpt else 'N/A' }}</td>
+                    <td style="padding: 10px; color: var(--text-muted);">{{ r.data_registro.strftime('%d/%m/%Y %H:%M:%S') }}</td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="9" style="padding: 20px; color: var(--text-muted);">Nenhum registro de entrada encontrado para este dia.</td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
