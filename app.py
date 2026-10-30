@@ -103,13 +103,45 @@ class HistoricoDoca(db.Model):
             'data_registro': self.data_registro.strftime('%d/%m/%Y %H:%M:%S') if self.data_registro else ''
         }
 
+class HistoricoEntrada(db.Model):
+    __tablename__ = 'historico_entradas'
+    id = db.Column(db.Integer, primary_key=True)
+    doca_numero = db.Column(db.Integer, nullable=False)
+    tipo = db.Column(db.String(10), nullable=False)
+    nome = db.Column(db.String(100), nullable=True, default='')
+    regiao = db.Column(db.String(100), nullable=True, default='')
+    placa = db.Column(db.String(20), nullable=True, default='')
+    chegada = db.Column(db.String(20), nullable=True, default='')
+    eta = db.Column(db.String(20), nullable=True, default='')
+    cpt = db.Column(db.String(50), nullable=True, default='')
+    cpt_datetime = db.Column(db.String(50), nullable=True, default='')
+    usuario_atribuicao = db.Column(db.String(50), nullable=True, default='')
+    data_registro = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'doca_numero': self.doca_numero,
+            'tipo': self.tipo,
+            'nome': self.nome or '',
+            'regiao': self.regiao or '',
+            'placa': self.placa or '',
+            'chegada': self.chegada or '',
+            'eta': self.eta or '',
+            'cpt': self.cpt or '',
+            'cpt_datetime': self.cpt_datetime or '',
+            'usuario_atribuicao': self.usuario_atribuicao or '',
+            'data_registro': self.data_registro.strftime('%d/%m/%Y %H:%M:%S') if self.data_registro else ''
+        }
+
 @login_manager.user_loader
 def load_user(user_id):
     return db.session.get(User, int(user_id))
 
-def limpar_historico_antigo():
+def limpar_historicos_antigos():
     limite = datetime.utcnow() - timedelta(days=60)
     HistoricoDoca.query.filter(HistoricoDoca.data_registro < limite).delete()
+    HistoricoEntrada.query.filter(HistoricoEntrada.data_registro < limite).delete()
     db.session.commit()
 
 def init_db():
@@ -120,14 +152,38 @@ def init_db():
         if inspector.has_table("docas"):
             columns = [c['name'] for c in inspector.get_columns("docas")]
             with db.engine.begin() as conn:
+                if 'nome' not in columns:
+                    conn.execute(text("ALTER TABLE docas ADD COLUMN nome VARCHAR(100) DEFAULT ''"))
+                if 'regiao' not in columns:
+                    conn.execute(text("ALTER TABLE docas ADD COLUMN regiao VARCHAR(100) DEFAULT ''"))
+                if 'chegada' not in columns:
+                    conn.execute(text("ALTER TABLE docas ADD COLUMN chegada VARCHAR(20) DEFAULT ''"))
+                if 'eta' not in columns:
+                    conn.execute(text("ALTER TABLE docas ADD COLUMN eta VARCHAR(20) DEFAULT ''"))
+                if 'cpt' not in columns:
+                    conn.execute(text("ALTER TABLE docas ADD COLUMN cpt VARCHAR(50) DEFAULT ''"))
+                if 'cpt_datetime' not in columns:
+                    conn.execute(text("ALTER TABLE docas ADD COLUMN cpt_datetime VARCHAR(50) DEFAULT ''"))
                 if 'usuario_atribuicao' not in columns:
                     conn.execute(text("ALTER TABLE docas ADD COLUMN usuario_atribuicao VARCHAR(50) DEFAULT ''"))
 
         if inspector.has_table("historico_docas"):
             h_columns = [c['name'] for c in inspector.get_columns("historico_docas")]
             with db.engine.begin() as conn:
+                if 'cpt_datetime' not in h_columns:
+                    conn.execute(text("ALTER TABLE historico_docas ADD COLUMN cpt_datetime VARCHAR(50) DEFAULT ''"))
+                if 'usuario_liberacao' not in h_columns:
+                    conn.execute(text("ALTER TABLE historico_docas ADD COLUMN usuario_liberacao VARCHAR(50) DEFAULT ''"))
                 if 'usuario_atribuicao' not in h_columns:
                     conn.execute(text("ALTER TABLE historico_docas ADD COLUMN usuario_atribuicao VARCHAR(50) DEFAULT ''"))
+
+        if inspector.has_table("historico_entradas"):
+            e_columns = [c['name'] for c in inspector.get_columns("historico_entradas")]
+            with db.engine.begin() as conn:
+                if 'cpt_datetime' not in e_columns:
+                    conn.execute(text("ALTER TABLE historico_entradas ADD COLUMN cpt_datetime VARCHAR(50) DEFAULT ''"))
+                if 'usuario_atribuicao' not in e_columns:
+                    conn.execute(text("ALTER TABLE historico_entradas ADD COLUMN usuario_atribuicao VARCHAR(50) DEFAULT ''"))
 
         admin_user = User.query.filter_by(username='admin').first()
         if not admin_user:
@@ -172,7 +228,7 @@ def index():
         total=len(todas_docas),
         hub_count=hub_count,
         soc_count=soc_count,
-        ocupadas_count=ocupadas_count,
+        ocupadas=ocupadas_count,
         livres=livres_count,
         termo_busca=q
     )
@@ -266,7 +322,6 @@ def api_graficos_dados():
             except Exception:
                 pass
 
-        # Atribuições e Liberações
         op_atrib = r.usuario_atribuicao if r.usuario_atribuicao else 'SISTEMA'
         operadores_atribuicao[op_atrib] = operadores_atribuicao.get(op_atrib, 0) + 1
 
@@ -312,10 +367,101 @@ def api_graficos_dados():
         }
     })
 
+@app.route('/historico-entradas')
+@login_required
+def historico_entradas_page():
+    limpar_historicos_antigos()
+    data_sel = request.args.get('data', (datetime.utcnow() - timedelta(hours=3)).strftime('%Y-%m-%d'))
+    
+    try:
+        data_obj = datetime.strptime(data_sel, '%Y-%m-%d')
+    except ValueError:
+        data_obj = datetime.utcnow() - timedelta(hours=3)
+
+    inicio_dia = datetime(data_obj.year, data_obj.month, data_obj.day, 0, 0, 0) + timedelta(hours=3)
+    fim_dia = datetime(data_obj.year, data_obj.month, data_obj.day, 23, 59, 59) + timedelta(hours=3)
+
+    registros = HistoricoEntrada.query.filter(
+        HistoricoEntrada.data_registro >= inicio_dia,
+        HistoricoEntrada.data_registro <= fim_dia
+    ).order_by(HistoricoEntrada.data_registro.desc()).all()
+
+    return render_template('historico_entradas.html', registros=registros, data_selecionada=data_sel)
+
+@app.route('/historico-entradas/exportar/<formato>')
+@login_required
+def exportar_historico_entradas(formato):
+    limpar_historicos_antigos()
+    data_sel = request.args.get('data', (datetime.utcnow() - timedelta(hours=3)).strftime('%Y-%m-%d'))
+    try:
+        data_obj = datetime.strptime(data_sel, '%Y-%m-%d')
+    except ValueError:
+        data_obj = datetime.utcnow() - timedelta(hours=3)
+
+    inicio_dia = datetime(data_obj.year, data_obj.month, data_obj.day, 0, 0, 0) + timedelta(hours=3)
+    fim_dia = datetime(data_obj.year, data_obj.month, data_obj.day, 23, 59, 59) + timedelta(hours=3)
+
+    registros = HistoricoEntrada.query.filter(
+        HistoricoEntrada.data_registro >= inicio_dia,
+        HistoricoEntrada.data_registro <= fim_dia
+    ).order_by(HistoricoEntrada.data_registro.asc()).all()
+
+    filename = f"historico_entradas_{data_sel}.{formato}"
+
+    if formato == 'txt':
+        conteudo = f"=== HISTÓRICO DE ENTRADAS DE DOCAS - {data_sel} ===\n\n"
+        for r in registros:
+            conteudo += (
+                f"DOCA: {r.doca_numero} ({r.tipo})\n"
+                f"PLACA: {r.placa or 'NÃO INFORMADA'} | NOME: {r.nome or 'NÃO INFORMADO'}\n"
+                f"REGIÃO: {r.regiao or 'NÃO INFORMADA'} | CPT: {r.cpt or 'NÃO INFORMADO'}\n"
+                f"CHEGADA: {r.chegada or 'NÃO INFORMADA'} | ETA: {r.eta or 'NÃO INFORMADO'}\n"
+                f"ATRIBUÍDO POR: {r.usuario_atribuicao or 'N/A'}\n"
+                f"REGISTRADO EM: {r.data_registro.strftime('%d/%m/%Y %H:%M:%S')}\n"
+                f"--------------------------------------------------\n"
+            )
+        buffer = BytesIO()
+        buffer.write(conteudo.encode('utf-8'))
+        buffer.seek(0)
+        return send_file(buffer, as_attachment=True, download_name=filename, mimetype='text/plain')
+
+    elif formato == 'pdf':
+        from reportlab.lib.pagesizes import letter
+        from reportlab.pdfgen import canvas
+
+        buffer = BytesIO()
+        p = canvas.Canvas(buffer, pagesize=letter)
+        y = 750
+        p.setFont("Helvetica-Bold", 14)
+        p.drawString(50, y, f"Relatorio de Historico de Entradas - {data_sel}")
+        y -= 30
+        p.setFont("Helvetica", 10)
+
+        for r in registros:
+            if y < 80:
+                p.showPage()
+                y = 750
+                p.setFont("Helvetica", 10)
+
+            texto = f"Doca {r.doca_numero} ({r.tipo}) - Placa: {r.placa or 'N/A'} | Atrib por: {r.usuario_atribuicao or 'N/A'}"
+            detalhe = f"Regiao: {r.regiao or 'N/A'} | Chegada: {r.chegada or 'N/A'} | CPT: {r.cpt or 'N/A'}"
+            
+            p.drawString(50, y, texto)
+            y -= 15
+            p.drawString(50, y, detalhe)
+            y -= 20
+
+        p.showPage()
+        p.save()
+        buffer.seek(0)
+        return send_file(buffer, as_attachment=True, download_name=filename, mimetype='application/pdf')
+
+    return redirect(url_for('historico_entradas_page'))
+
 @app.route('/historico')
 @login_required
 def historico_page():
-    limpar_historico_antigo()
+    limpar_historicos_antigos()
     data_sel = request.args.get('data', (datetime.utcnow() - timedelta(hours=3)).strftime('%Y-%m-%d'))
     
     try:
@@ -336,7 +482,7 @@ def historico_page():
 @app.route('/historico/exportar/<formato>')
 @login_required
 def exportar_historico(formato):
-    limpar_historico_antigo()
+    limpar_historicos_antigos()
     data_sel = request.args.get('data', (datetime.utcnow() - timedelta(hours=3)).strftime('%Y-%m-%d'))
     try:
         data_obj = datetime.strptime(data_sel, '%Y-%m-%d')
@@ -351,17 +497,17 @@ def exportar_historico(formato):
         HistoricoDoca.data_registro <= fim_dia
     ).order_by(HistoricoDoca.data_registro.asc()).all()
 
-    filename = f"historico_docas_{data_sel}.{formato}"
+    filename = f"historico_saidas_{data_sel}.{formato}"
 
     if formato == 'txt':
-        conteudo = f"=== HISTÓRICO DE DOCAS - {data_sel} ===\n\n"
+        conteudo = f"=== HISTÓRICO DE SAÍDAS DE DOCAS - {data_sel} ===\n\n"
         for r in registros:
             conteudo += (
                 f"DOCA: {r.doca_numero} ({r.tipo})\n"
                 f"PLACA: {r.placa or 'NÃO INFORMADA'} | NOME: {r.nome or 'NÃO INFORMADO'}\n"
                 f"REGIÃO: {r.regiao or 'NÃO INFORMADA'} | CPT: {r.cpt or 'NÃO INFORMADO'}\n"
                 f"CHEGADA: {r.chegada or 'NÃO INFORMADA'} | ETA: {r.eta or 'NÃO INFORMADO'}\n"
-                f"HORÁRIO SAÍDA: {r.horario_saida or 'NÃO INFORMADO'} | ATRIBUÍDO POR: {r.usuario_atribuicao or 'N/A'} | LIBERADO POR: {r.usuario_liberacao or 'N/A'}\n"
+                f"SAÍDA: {r.horario_saida or 'NÃO INFORMADO'} | LIBERADO POR: {r.usuario_liberacao or 'N/A'}\n"
                 f"REGISTRADO EM: {r.data_registro.strftime('%d/%m/%Y %H:%M:%S')}\n"
                 f"--------------------------------------------------\n"
             )
@@ -378,7 +524,7 @@ def exportar_historico(formato):
         p = canvas.Canvas(buffer, pagesize=letter)
         y = 750
         p.setFont("Helvetica-Bold", 14)
-        p.drawString(50, y, f"Relatorio de Historico de Docas - {data_sel}")
+        p.drawString(50, y, f"Relatorio de Historico de Saidas - {data_sel}")
         y -= 30
         p.setFont("Helvetica", 10)
 
@@ -388,8 +534,8 @@ def exportar_historico(formato):
                 y = 750
                 p.setFont("Helvetica", 10)
 
-            texto = f"Doca {r.doca_numero} ({r.tipo}) - Placa: {r.placa or 'N/A'} | Atrib: {r.usuario_atribuicao or 'N/A'}"
-            detalhe = f"Regiao: {r.regiao or 'N/A'} | Saida: {r.horario_saida or 'N/A'} | Lib: {r.usuario_liberacao or 'N/A'} | CPT: {r.cpt or 'N/A'}"
+            texto = f"Doca {r.doca_numero} ({r.tipo}) - Placa: {r.placa or 'N/A'} | Saida: {r.horario_saida or 'N/A'}"
+            detalhe = f"Regiao: {r.regiao or 'N/A'} | Lib por: {r.usuario_liberacao or 'N/A'} | CPT: {r.cpt or 'N/A'}"
             
             p.drawString(50, y, texto)
             y -= 15
@@ -511,7 +657,6 @@ def api_update_doca(numero):
     
     novo_status = data.get('status')
     Acao = data.get('acao', 'status')
-    horario_agora = (datetime.utcnow() - timedelta(hours=3)).strftime('%H:%M:%S')
 
     if Acao == 'editar' and doca.status == 'OCUPADA':
         val_nome = data.get('nome', '')
@@ -532,6 +677,7 @@ def api_update_doca(numero):
 
     elif novo_status in ['LIVRE', 'OCUPADA']:
         if novo_status == 'LIVRE' and doca.status == 'OCUPADA':
+            horario_saida_agora = (datetime.utcnow() - timedelta(hours=3)).strftime('%H:%M:%S')
             hist = HistoricoDoca(
                 doca_numero=doca.numero,
                 tipo=doca.tipo,
@@ -542,7 +688,7 @@ def api_update_doca(numero):
                 eta=doca.eta,
                 cpt=doca.cpt,
                 cpt_datetime=doca.cpt_datetime,
-                horario_saida=horario_agora,
+                horario_saida=horario_saida_agora,
                 usuario_liberacao=current_user.username,
                 usuario_atribuicao=doca.usuario_atribuicao,
                 data_registro=datetime.utcnow()
@@ -575,9 +721,23 @@ def api_update_doca(numero):
             doca.cpt = val_cpt.strip().upper() if isinstance(val_cpt, str) else str(val_cpt).strip().upper()
             doca.cpt_datetime = val_cpt_datetime.strip() if isinstance(val_cpt_datetime, str) else str(val_cpt_datetime).strip()
             
-            # Registra quem fez a atribuição caso ainda não tenha
-            if not doca.usuario_atribuicao:
-                doca.usuario_atribuicao = current_user.username
+            usuario_atual = current_user.username
+            doca.usuario_atribuicao = usuario_atual
+
+            hist_entrada = HistoricoEntrada(
+                doca_numero=doca.numero,
+                tipo=doca.tipo,
+                nome=doca.nome,
+                regiao=doca.regiao,
+                placa=doca.placa,
+                chegada=doca.chegada,
+                eta=doca.eta,
+                cpt=doca.cpt,
+                cpt_datetime=doca.cpt_datetime,
+                usuario_atribuicao=usuario_atual,
+                data_registro=datetime.utcnow()
+            )
+            db.session.add(hist_entrada)
 
         doca.status = novo_status
 
