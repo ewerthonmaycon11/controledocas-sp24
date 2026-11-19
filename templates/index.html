@@ -103,7 +103,24 @@
                             </div>
                         </div>
                     {% else %}
-                        <button type="button" class="btn-action action-btn-release" data-numero="{{ doca.numero }}" style="margin-top: 8px;">Liberar Doca</button>
+                        <div class="dock-ocupada-actions">
+                            <button type="button" class="btn-action action-btn-release" data-numero="{{ doca.numero }}">Liberar Doca</button>
+                            <button
+                                type="button"
+                                class="btn-share-whatsapp"
+                                title="Compartilhar no WhatsApp"
+                                aria-label="Compartilhar Doca {{ doca.numero }} no WhatsApp"
+                                data-doca="{{ doca.numero }}"
+                                data-nome="{{ doca.nome or 'NÃO INFORMADO' }}"
+                                data-regiao="{{ doca.regiao or 'NÃO INFORMADA' }}"
+                                data-placa="{{ doca.placa or 'NÃO INFORMADA' }}"
+                                data-chegada="{{ doca.chegada or 'NÃO INFORMADA' }}"
+                                data-eta="{{ doca.eta or 'NÃO INFORMADO' }}"
+                                data-cpt="{{ doca.cpt or 'NÃO INFORMADO' }}"
+                            >
+                                📤 WhatsApp
+                            </button>
+                        </div>
                     {% endif %}
                 {% endif %}
             </div>
@@ -183,7 +200,24 @@
                             </div>
                         </div>
                     {% else %}
-                        <button type="button" class="btn-action action-btn-release" data-numero="{{ doca.numero }}" style="margin-top: 8px;">Liberar Doca</button>
+                        <div class="dock-ocupada-actions">
+                            <button type="button" class="btn-action action-btn-release" data-numero="{{ doca.numero }}">Liberar Doca</button>
+                            <button
+                                type="button"
+                                class="btn-share-whatsapp"
+                                title="Compartilhar no WhatsApp"
+                                aria-label="Compartilhar Doca {{ doca.numero }} no WhatsApp"
+                                data-doca="{{ doca.numero }}"
+                                data-nome="{{ doca.nome or 'NÃO INFORMADO' }}"
+                                data-regiao="{{ doca.regiao or 'NÃO INFORMADA' }}"
+                                data-placa="{{ doca.placa or 'NÃO INFORMADA' }}"
+                                data-chegada="{{ doca.chegada or 'NÃO INFORMADA' }}"
+                                data-eta="{{ doca.eta or 'NÃO INFORMADO' }}"
+                                data-cpt="{{ doca.cpt or 'NÃO INFORMADO' }}"
+                            >
+                                📤 WhatsApp
+                            </button>
+                        </div>
                     {% endif %}
                 {% endif %}
             </div>
