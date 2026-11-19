@@ -674,3 +674,39 @@ body {
     color: #0f172a;
     box-shadow: 0 0 15px rgba(14, 165, 233, 0.4);
 }
+
+
+
+.dock-ocupada-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    margin-top: 8px;
+    width: 100%;
+}
+
+.dock-ocupada-actions .action-btn-release {
+    width: 100%;
+    margin-top: 0;
+}
+
+.btn-share-whatsapp {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    border-radius: 6px;
+    border: 1px solid rgba(37, 211, 102, 0.45);
+    background: rgba(37, 211, 102, 0.14);
+    color: #4ade80;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.btn-share-whatsapp:hover {
+    background: rgba(37, 211, 102, 0.28);
+    transform: translateY(-1px);
+}
