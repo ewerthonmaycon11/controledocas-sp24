@@ -94,8 +94,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Eventos para Botões de Ação, Edição e Salvamento
+    // Eventos para Botões de Ação, Edição, Salvamento e WhatsApp
     document.body.addEventListener('click', (e) => {
+        const shareBtn = e.target.closest('.btn-share-whatsapp');
+        if (shareBtn) {
+            const dados = {
+                doca: shareBtn.dataset.doca,
+                nome: shareBtn.dataset.nome,
+                regiao: shareBtn.dataset.regiao,
+                placa: shareBtn.dataset.placa,
+                chegada: shareBtn.dataset.chegada,
+                eta: shareBtn.dataset.eta,
+                cpt: shareBtn.dataset.cpt
+            };
+
+            const texto = formatarMensagemWhatsApp(dados);
+            const url = `https://wa.me/?text=${encodeURIComponent(texto)}`;
+            window.open(url, '_blank', 'noopener,noreferrer');
+            return;
+        }
+
         if (e.target.classList.contains('action-btn-cancel') || e.target.classList.contains('btn-edit-cancel')) {
             const numero = e.target.getAttribute('data-numero');
             fetchDocasStatus(); // Restaura o card original
@@ -129,6 +147,36 @@ document.addEventListener('DOMContentLoaded', () => {
         atualizarCronometrosChegada();
     }, 1000);
 });
+
+function gerarHtmlAcoesOcupada(doca) {
+    const nome = doca.nome || 'NÃO INFORMADO';
+    const regiao = doca.regiao || 'NÃO INFORMADA';
+    const placa = doca.placa || 'NÃO INFORMADA';
+    const chegada = doca.chegada || 'NÃO INFORMADA';
+    const eta = doca.eta || 'NÃO INFORMADO';
+    const cpt = doca.cpt || 'NÃO INFORMADO';
+
+    return `
+        <div class="dock-ocupada-actions">
+            <button type="button" class="btn-action action-btn-release" data-numero="${doca.numero}">Liberar Doca</button>
+            <button
+                type="button"
+                class="btn-share-whatsapp"
+                title="Compartilhar no WhatsApp"
+                aria-label="Compartilhar Doca ${doca.numero} no WhatsApp"
+                data-doca="${doca.numero}"
+                data-nome="${nome}"
+                data-regiao="${regiao}"
+                data-placa="${placa}"
+                data-chegada="${chegada}"
+                data-eta="${eta}"
+                data-cpt="${cpt}"
+            >
+                📤 WhatsApp
+            </button>
+        </div>
+    `;
+}
 
 function abrirFormularioEdicao(numero) {
     const plateDisplay = document.getElementById(`plate-display-${numero}`);
@@ -304,7 +352,7 @@ function atualizarCardNaTela(doca) {
 
     if (adminControls && temPermissao) {
         if (doca.status === 'OCUPADA') {
-            adminControls.innerHTML = `<button type="button" class="btn-action action-btn-release" data-numero="${doca.numero}" style="margin-top: 8px;">Liberar Doca</button>`;
+            adminControls.innerHTML = gerarHtmlAcoesOcupada(doca);
         } else {
             adminControls.innerHTML = `
                 <div class="plate-input-group form-atribuicao" id="form-${doca.numero}" style="display: none; margin-top: 8px;">
@@ -363,6 +411,17 @@ async function fetchDocasStatus() {
                     plateDisplay.setAttribute('data-nome', doca.nome || '');
                     plateDisplay.setAttribute('data-chegada', doca.chegada || '');
                     plateDisplay.setAttribute('data-eta', doca.eta || '');
+                }
+
+                const shareBtn = card.querySelector('.btn-share-whatsapp');
+                if (shareBtn && doca.status === 'OCUPADA') {
+                    shareBtn.dataset.doca = doca.numero;
+                    shareBtn.dataset.nome = doca.nome || 'NÃO INFORMADO';
+                    shareBtn.dataset.regiao = doca.regiao || 'NÃO INFORMADA';
+                    shareBtn.dataset.placa = doca.placa || 'NÃO INFORMADA';
+                    shareBtn.dataset.chegada = doca.chegada || 'NÃO INFORMADA';
+                    shareBtn.dataset.eta = doca.eta || 'NÃO INFORMADO';
+                    shareBtn.dataset.cpt = doca.cpt || 'NÃO INFORMADO';
                 }
 
                 if (card.getAttribute('data-status') !== doca.status) {
@@ -457,4 +516,19 @@ function atualizarCronometrosChegada() {
 
         timerEl.innerHTML = `<span style="color: #10b981; font-weight: 900; letter-spacing: 1px;">⏱️ TEMPO NO PÁTIO: ${hFormatado}:${mFormatado}:${sFormatado}</span>`;
     });
+}
+
+function formatarMensagemWhatsApp(dados) {
+    const linhas = [
+        'Pátio Outbound Carregamento:',
+        '',
+        `⚪ NOME: ${dados.nome || 'NÃO INFORMADO'}`,
+        `⚪ REGIÃO: ${dados.regiao || 'NÃO INFORMADA'}`,
+        `⚪ PLACA: ${dados.placa || 'NÃO INFORMADA'}`,
+        `🚚 DOCA: ${dados.doca || ''}`,
+        `⚪ CHEGADA: ${dados.chegada || 'NÃO INFORMADA'}`,
+        `⚪ ETA: ${dados.eta || 'NÃO INFORMADO'}`,
+        `⚪ CPT: ${dados.cpt || 'NÃO INFORMADO'}`
+    ];
+    return linhas.join('\n');
 }
