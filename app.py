@@ -48,6 +48,11 @@ class Doca(db.Model):
     cpt = db.Column(db.String(50), nullable=True, default='')
     cpt_datetime = db.Column(db.String(50), nullable=True, default='')
     usuario_atribuicao = db.Column(db.String(50), nullable=True, default='')
+
+    checklist_feito = db.Column(db.Boolean, default=False)
+    checklist_usuario = db.Column(db.String(50), nullable=True, default='')
+    checklist_data_hora = db.Column(db.String(50), nullable=True, default='')
+    checklist_obs = db.Column(db.String(255), nullable=True, default='')
     
     ultima_atualizacao = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -65,6 +70,10 @@ class Doca(db.Model):
             'cpt': self.cpt or '',
             'cpt_datetime': self.cpt_datetime or '',
             'usuario_atribuicao': self.usuario_atribuicao or '',
+            'checklist_feito': bool(self.checklist_feito),
+            'checklist_usuario': self.checklist_usuario or '',
+            'checklist_data_hora': self.checklist_data_hora or '',
+            'checklist_obs': self.checklist_obs or '',
             'ultima_atualizacao': self.ultima_atualizacao.strftime('%H:%M:%S') if self.ultima_atualizacao else ''
         }
 
@@ -83,6 +92,10 @@ class HistoricoDoca(db.Model):
     horario_saida = db.Column(db.String(20), nullable=True, default='')
     usuario_liberacao = db.Column(db.String(50), nullable=True, default='')
     usuario_atribuicao = db.Column(db.String(50), nullable=True, default='')
+    checklist_feito = db.Column(db.Boolean, default=False)
+    checklist_usuario = db.Column(db.String(50), nullable=True, default='')
+    checklist_data_hora = db.Column(db.String(50), nullable=True, default='')
+    checklist_obs = db.Column(db.String(255), nullable=True, default='')
     data_registro = db.Column(db.DateTime, default=datetime.utcnow)
 
     def to_dict(self):
@@ -100,6 +113,10 @@ class HistoricoDoca(db.Model):
             'horario_saida': self.horario_saida or '',
             'usuario_liberacao': self.usuario_liberacao or '',
             'usuario_atribuicao': self.usuario_atribuicao or '',
+            'checklist_feito': bool(self.checklist_feito),
+            'checklist_usuario': self.checklist_usuario or '',
+            'checklist_data_hora': self.checklist_data_hora or '',
+            'checklist_obs': self.checklist_obs or '',
             'data_registro': self.data_registro.strftime('%d/%m/%Y %H:%M:%S') if self.data_registro else ''
         }
 
@@ -116,6 +133,10 @@ class HistoricoEntrada(db.Model):
     cpt = db.Column(db.String(50), nullable=True, default='')
     cpt_datetime = db.Column(db.String(50), nullable=True, default='')
     usuario_atribuicao = db.Column(db.String(50), nullable=True, default='')
+    checklist_feito = db.Column(db.Boolean, default=False)
+    checklist_usuario = db.Column(db.String(50), nullable=True, default='')
+    checklist_data_hora = db.Column(db.String(50), nullable=True, default='')
+    checklist_obs = db.Column(db.String(255), nullable=True, default='')
     data_registro = db.Column(db.DateTime, default=datetime.utcnow)
 
     def to_dict(self):
@@ -131,6 +152,10 @@ class HistoricoEntrada(db.Model):
             'cpt': self.cpt or '',
             'cpt_datetime': self.cpt_datetime or '',
             'usuario_atribuicao': self.usuario_atribuicao or '',
+            'checklist_feito': bool(self.checklist_feito),
+            'checklist_usuario': self.checklist_usuario or '',
+            'checklist_data_hora': self.checklist_data_hora or '',
+            'checklist_obs': self.checklist_obs or '',
             'data_registro': self.data_registro.strftime('%d/%m/%Y %H:%M:%S') if self.data_registro else ''
         }
 
@@ -166,6 +191,14 @@ def init_db():
                     conn.execute(text("ALTER TABLE docas ADD COLUMN cpt_datetime VARCHAR(50) DEFAULT ''"))
                 if 'usuario_atribuicao' not in columns:
                     conn.execute(text("ALTER TABLE docas ADD COLUMN usuario_atribuicao VARCHAR(50) DEFAULT ''"))
+                if 'checklist_feito' not in columns:
+                    conn.execute(text("ALTER TABLE docas ADD COLUMN checklist_feito BOOLEAN DEFAULT FALSE"))
+                if 'checklist_usuario' not in columns:
+                    conn.execute(text("ALTER TABLE docas ADD COLUMN checklist_usuario VARCHAR(50) DEFAULT ''"))
+                if 'checklist_data_hora' not in columns:
+                    conn.execute(text("ALTER TABLE docas ADD COLUMN checklist_data_hora VARCHAR(50) DEFAULT ''"))
+                if 'checklist_obs' not in columns:
+                    conn.execute(text("ALTER TABLE docas ADD COLUMN checklist_obs VARCHAR(255) DEFAULT ''"))
 
         if inspector.has_table("historico_docas"):
             h_columns = [c['name'] for c in inspector.get_columns("historico_docas")]
@@ -176,6 +209,14 @@ def init_db():
                     conn.execute(text("ALTER TABLE historico_docas ADD COLUMN usuario_liberacao VARCHAR(50) DEFAULT ''"))
                 if 'usuario_atribuicao' not in h_columns:
                     conn.execute(text("ALTER TABLE historico_docas ADD COLUMN usuario_atribuicao VARCHAR(50) DEFAULT ''"))
+                if 'checklist_feito' not in h_columns:
+                    conn.execute(text("ALTER TABLE historico_docas ADD COLUMN checklist_feito BOOLEAN DEFAULT FALSE"))
+                if 'checklist_usuario' not in h_columns:
+                    conn.execute(text("ALTER TABLE historico_docas ADD COLUMN checklist_usuario VARCHAR(50) DEFAULT ''"))
+                if 'checklist_data_hora' not in h_columns:
+                    conn.execute(text("ALTER TABLE historico_docas ADD COLUMN checklist_data_hora VARCHAR(50) DEFAULT ''"))
+                if 'checklist_obs' not in h_columns:
+                    conn.execute(text("ALTER TABLE historico_docas ADD COLUMN checklist_obs VARCHAR(255) DEFAULT ''"))
 
         if inspector.has_table("historico_entradas"):
             e_columns = [c['name'] for c in inspector.get_columns("historico_entradas")]
@@ -184,6 +225,14 @@ def init_db():
                     conn.execute(text("ALTER TABLE historico_entradas ADD COLUMN cpt_datetime VARCHAR(50) DEFAULT ''"))
                 if 'usuario_atribuicao' not in e_columns:
                     conn.execute(text("ALTER TABLE historico_entradas ADD COLUMN usuario_atribuicao VARCHAR(50) DEFAULT ''"))
+                if 'checklist_feito' not in e_columns:
+                    conn.execute(text("ALTER TABLE historico_entradas ADD COLUMN checklist_feito BOOLEAN DEFAULT FALSE"))
+                if 'checklist_usuario' not in e_columns:
+                    conn.execute(text("ALTER TABLE historico_entradas ADD COLUMN checklist_usuario VARCHAR(50) DEFAULT ''"))
+                if 'checklist_data_hora' not in e_columns:
+                    conn.execute(text("ALTER TABLE historico_entradas ADD COLUMN checklist_data_hora VARCHAR(50) DEFAULT ''"))
+                if 'checklist_obs' not in e_columns:
+                    conn.execute(text("ALTER TABLE historico_entradas ADD COLUMN checklist_obs VARCHAR(255) DEFAULT ''"))
 
         admin_user = User.query.filter_by(username='admin').first()
         if not admin_user:
@@ -233,6 +282,84 @@ def index():
         termo_busca=q
     )
 
+@app.route('/checklist')
+@login_required
+def checklist_page():
+    docas_ocupadas = Doca.query.filter_by(status='OCUPADA').order_by(Doca.numero.asc()).all()
+    historico_recente = HistoricoDoca.query.order_by(HistoricoDoca.data_registro.desc()).limit(100).all()
+
+    itens = []
+    for d in docas_ocupadas:
+        itens.append({
+            'origem': 'NO PÁTIO (OCUPADA)',
+            'doca_numero': d.numero,
+            'tipo': d.tipo,
+            'placa': d.placa or '',
+            'nome': d.nome or '',
+            'regiao': d.regiao or '',
+            'chegada': d.chegada or '',
+            'eta': d.eta or '',
+            'cpt': d.cpt or '',
+            'usuario_atribuicao': d.usuario_atribuicao or '',
+            'checklist_feito': bool(d.checklist_feito),
+            'checklist_usuario': d.checklist_usuario or '',
+            'checklist_data_hora': d.checklist_data_hora or '',
+            'checklist_obs': d.checklist_obs or ''
+        })
+
+    for h in historico_recente:
+        itens.append({
+            'origem': 'HISTÓRICO / SAÍDA',
+            'doca_numero': h.doca_numero,
+            'tipo': h.tipo,
+            'placa': h.placa or '',
+            'nome': h.nome or '',
+            'regiao': h.regiao or '',
+            'chegada': h.chegada or '',
+            'eta': h.eta or '',
+            'cpt': h.cpt or '',
+            'usuario_atribuicao': h.usuario_atribuicao or '',
+            'checklist_feito': bool(h.checklist_feito),
+            'checklist_usuario': h.checklist_usuario or '',
+            'checklist_data_hora': h.checklist_data_hora or '',
+            'checklist_obs': h.checklist_obs or ''
+        })
+
+    return render_template('checklist.html', itens=itens)
+
+@app.route('/api/doca/<int:numero>/checklist', methods=['POST'])
+@login_required
+def api_toggle_checklist(numero):
+    doca = Doca.query.filter_by(numero=numero).first_or_404()
+    data = request.get_json() or {}
+    feito = bool(data.get('checklist_feito', True))
+    obs = str(data.get('checklist_obs', '') or '').strip()[:255]
+    agora_br = (datetime.utcnow() - timedelta(hours=3)).strftime('%d/%m/%Y %H:%M:%S')
+
+    if feito:
+        doca.checklist_feito = True
+        doca.checklist_usuario = current_user.username
+        doca.checklist_data_hora = agora_br
+        doca.checklist_obs = obs
+    else:
+        doca.checklist_feito = False
+        doca.checklist_usuario = ''
+        doca.checklist_data_hora = ''
+        doca.checklist_obs = ''
+
+    entrada_recente = HistoricoEntrada.query.filter_by(
+        doca_numero=doca.numero,
+        placa=doca.placa
+    ).order_by(HistoricoEntrada.id.desc()).first()
+    if entrada_recente:
+        entrada_recente.checklist_feito = doca.checklist_feito
+        entrada_recente.checklist_usuario = doca.checklist_usuario
+        entrada_recente.checklist_data_hora = doca.checklist_data_hora
+        entrada_recente.checklist_obs = doca.checklist_obs
+
+    db.session.commit()
+    return jsonify({'success': True, 'doca': doca.to_dict()})
+
 @app.route('/graficos')
 @login_required
 def graficos_page():
@@ -256,6 +383,8 @@ def api_graficos_dados():
         HistoricoDoca.data_registro >= inicio
     ).all()
 
+    docas_atuais_ocupadas = Doca.query.filter_by(status='OCUPADA').all()
+
     hub_count = sum(1 for r in registros if r.tipo == 'HUB')
     soc_count = sum(1 for r in registros if r.tipo == 'SOC')
 
@@ -269,7 +398,22 @@ def api_graficos_dados():
     operadores_liberacao = {}
     regioes = {}
 
+    checklist_feitos = 0
+    checklist_pendentes = 0
+    checklist_por_usuario = {}
+    veiculos_checklist_feitos = []
+
     for r in registros:
+        if r.checklist_feito:
+            checklist_feitos += 1
+            op_chk = r.checklist_usuario if r.checklist_usuario else (r.usuario_atribuicao or 'SISTEMA')
+            checklist_por_usuario[op_chk] = checklist_por_usuario.get(op_chk, 0) + 1
+            veiculos_checklist_feitos.append(
+                f"{r.placa or 'S/P'} - {r.nome or 'S/N'} (Doca {r.doca_numero} | {op_chk})"
+            )
+        else:
+            checklist_pendentes += 1
+
         if r.cpt_datetime and r.horario_saida:
             try:
                 alvo_cpt = datetime.fromisoformat(r.cpt_datetime)
@@ -331,6 +475,17 @@ def api_graficos_dados():
         reg = r.regiao if r.regiao else 'NÃO INFORMADA'
         regioes[reg] = regioes.get(reg, 0) + 1
 
+    for d in docas_atuais_ocupadas:
+        if d.checklist_feito:
+            checklist_feitos += 1
+            op_chk = d.checklist_usuario if d.checklist_usuario else (d.usuario_atribuicao or 'SISTEMA')
+            checklist_por_usuario[op_chk] = checklist_por_usuario.get(op_chk, 0) + 1
+            veiculos_checklist_feitos.append(
+                f"{d.placa or 'S/P'} - {d.nome or 'S/N'} (Doca {d.numero} | {op_chk})"
+            )
+        else:
+            checklist_pendentes += 1
+
     todos_tempos = tempos_hub + tempos_soc
     avg_tempo = sum(todos_tempos) / len(todos_tempos) if todos_tempos else 0
     avg_hub = sum(tempos_hub) / len(tempos_hub) if tempos_hub else 0
@@ -341,6 +496,7 @@ def api_graficos_dados():
     lento = sum(1 for t in todos_tempos if t > 120)
 
     top_regioes = sorted(regioes.items(), key=lambda x: x[1], reverse=True)
+    top_chk_usuarios = sorted(checklist_por_usuario.items(), key=lambda x: x[1], reverse=True)
 
     return jsonify({
         'total_operacoes': len(registros),
@@ -364,6 +520,13 @@ def api_graficos_dados():
         'regioes': {
             'labels': [item[0] for item in top_regioes],
             'data': [item[1] for item in top_regioes]
+        },
+        'checklist': {
+            'feitos': checklist_feitos,
+            'pendentes': checklist_pendentes,
+            'usuarios_labels': [item[0] for item in top_chk_usuarios],
+            'usuarios_data': [item[1] for item in top_chk_usuarios],
+            'veiculos_feitos': veiculos_checklist_feitos
         }
     })
 
@@ -417,6 +580,7 @@ def exportar_historico_entradas(formato):
                 f"REGIÃO: {r.regiao or 'NÃO INFORMADA'} | CPT: {r.cpt or 'NÃO INFORMADO'}\n"
                 f"CHEGADA: {r.chegada or 'NÃO INFORMADA'} | ETA: {r.eta or 'NÃO INFORMADO'}\n"
                 f"ATRIBUÍDO POR: {r.usuario_atribuicao or 'N/A'}\n"
+                f"CHECKLIST: {'FEITO' if r.checklist_feito else 'PENDENTE'}\n"
                 f"REGISTRADO EM: {r.data_registro.strftime('%d/%m/%Y %H:%M:%S')}\n"
                 f"--------------------------------------------------\n"
             )
@@ -508,6 +672,7 @@ def exportar_historico(formato):
                 f"REGIÃO: {r.regiao or 'NÃO INFORMADA'} | CPT: {r.cpt or 'NÃO INFORMADO'}\n"
                 f"CHEGADA: {r.chegada or 'NÃO INFORMADA'} | ETA: {r.eta or 'NÃO INFORMADO'}\n"
                 f"SAÍDA: {r.horario_saida or 'NÃO INFORMADO'} | LIBERADO POR: {r.usuario_liberacao or 'N/A'}\n"
+                f"CHECKLIST: {'FEITO POR ' + (r.checklist_usuario or 'N/A') if r.checklist_feito else 'NÃO FEITO'}\n"
                 f"REGISTRADO EM: {r.data_registro.strftime('%d/%m/%Y %H:%M:%S')}\n"
                 f"--------------------------------------------------\n"
             )
@@ -691,6 +856,10 @@ def api_update_doca(numero):
                 horario_saida=horario_saida_agora,
                 usuario_liberacao=current_user.username,
                 usuario_atribuicao=doca.usuario_atribuicao,
+                checklist_feito=bool(doca.checklist_feito),
+                checklist_usuario=doca.checklist_usuario or '',
+                checklist_data_hora=doca.checklist_data_hora or '',
+                checklist_obs=doca.checklist_obs or '',
                 data_registro=datetime.utcnow()
             )
             db.session.add(hist)
@@ -703,6 +872,10 @@ def api_update_doca(numero):
             doca.cpt = ''
             doca.cpt_datetime = ''
             doca.usuario_atribuicao = ''
+            doca.checklist_feito = False
+            doca.checklist_usuario = ''
+            doca.checklist_data_hora = ''
+            doca.checklist_obs = ''
 
         elif novo_status == 'OCUPADA':
             val_nome = data.get('nome', '')
@@ -723,6 +896,10 @@ def api_update_doca(numero):
             
             usuario_atual = current_user.username
             doca.usuario_atribuicao = usuario_atual
+            doca.checklist_feito = False
+            doca.checklist_usuario = ''
+            doca.checklist_data_hora = ''
+            doca.checklist_obs = ''
 
             hist_entrada = HistoricoEntrada(
                 doca_numero=doca.numero,
@@ -735,6 +912,10 @@ def api_update_doca(numero):
                 cpt=doca.cpt,
                 cpt_datetime=doca.cpt_datetime,
                 usuario_atribuicao=usuario_atual,
+                checklist_feito=False,
+                checklist_usuario='',
+                checklist_data_hora='',
+                checklist_obs='',
                 data_registro=datetime.utcnow()
             )
             db.session.add(hist_entrada)
