@@ -32,12 +32,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (applyPasteBtn && pasteTextarea) {
         applyPasteBtn.addEventListener('click', () => {
             const texto = pasteTextarea.value;
+            const numeroAlvo = pasteTargetDoca || (pasteOverlay && pasteOverlay.getAttribute('data-doca')) || (applyPasteBtn && applyPasteBtn.getAttribute('data-doca'));
+            const modoAlvo = pasteTargetModo || (pasteOverlay && pasteOverlay.getAttribute('data-modo')) || 'input';
+
             if (!texto.trim()) {
                 alert('Cole o texto antes de preencher os campos.');
                 pasteTextarea.focus();
                 return;
             }
-            aplicarTextoNosCampos(pasteTargetDoca, pasteTargetModo, texto);
+            aplicarTextoNosCampos(numeroAlvo, modoAlvo, texto);
             fecharModalColar();
         });
     }
@@ -47,8 +50,10 @@ document.addEventListener('DOMContentLoaded', () => {
         pasteTextarea.addEventListener('paste', () => {
             setTimeout(() => {
                 const texto = pasteTextarea.value;
-                if (texto.trim() && pasteTargetDoca) {
-                    aplicarTextoNosCampos(pasteTargetDoca, pasteTargetModo, texto);
+                const numeroAlvo = pasteTargetDoca || (pasteOverlay && pasteOverlay.getAttribute('data-doca'));
+                const modoAlvo = pasteTargetModo || (pasteOverlay && pasteOverlay.getAttribute('data-modo')) || 'input';
+                if (texto.trim() && numeroAlvo) {
+                    aplicarTextoNosCampos(numeroAlvo, modoAlvo, texto);
                     fecharModalColar();
                 }
             }, 50);
@@ -160,8 +165,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const pasteBtn = e.target.closest('.btn-paste-data');
         if (pasteBtn) {
-            const numero = pasteBtn.getAttribute('data-numero');
+            const card = pasteBtn.closest('.dock-card');
+            const numero = pasteBtn.getAttribute('data-numero') || (card && card.getAttribute('data-numero'));
             const modo = pasteBtn.getAttribute('data-modo') || 'input';
+
+            if (!numero) return;
 
             if (modo === 'edit') {
                 abrirFormularioEdicao(numero);
@@ -175,28 +183,31 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (e.target.classList.contains('action-btn-cancel') || e.target.classList.contains('btn-edit-cancel')) {
-            const numero = e.target.getAttribute('data-numero');
             fetchDocasStatus(); // Restaura o card original
         }
 
         if (e.target.classList.contains('btn-edit-open')) {
-            const numero = e.target.getAttribute('data-numero');
-            abrirFormularioEdicao(numero);
+            const card = e.target.closest('.dock-card');
+            const numero = e.target.getAttribute('data-numero') || (card && card.getAttribute('data-numero'));
+            if (numero) abrirFormularioEdicao(numero);
         }
 
         if (e.target.classList.contains('action-btn-occupy')) {
-            const numero = e.target.getAttribute('data-numero');
-            enviarDadosDoca(numero, 'OCUPADA', 'status');
+            const card = e.target.closest('.dock-card');
+            const numero = e.target.getAttribute('data-numero') || (card && card.getAttribute('data-numero'));
+            if (numero) enviarDadosDoca(numero, 'OCUPADA', 'status');
         }
 
         if (e.target.classList.contains('btn-edit-save')) {
-            const numero = e.target.getAttribute('data-numero');
-            enviarDadosDoca(numero, 'OCUPADA', 'editar');
+            const card = e.target.closest('.dock-card');
+            const numero = e.target.getAttribute('data-numero') || (card && card.getAttribute('data-numero'));
+            if (numero) enviarDadosDoca(numero, 'OCUPADA', 'editar');
         }
 
         if (e.target.classList.contains('action-btn-release')) {
-            const numero = e.target.getAttribute('data-numero');
-            alterarStatusComDados(numero, 'LIVRE', {});
+            const card = e.target.closest('.dock-card');
+            const numero = e.target.getAttribute('data-numero') || (card && card.getAttribute('data-numero'));
+            if (numero) alterarStatusComDados(numero, 'LIVRE', {});
         }
     });
 
@@ -209,20 +220,27 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function abrirModalColar(numero, modo) {
-    pasteTargetDoca = numero;
-    pasteTargetModo = modo;
+    if (!numero) return;
+
+    pasteTargetDoca = String(numero);
+    pasteTargetModo = modo || 'input';
 
     const overlay = document.getElementById('paste-modal-overlay');
     const textarea = document.getElementById('paste-modal-textarea');
     const docaNumSpan = document.getElementById('paste-modal-doca-num');
+    const applyPasteBtn = document.getElementById('apply-paste-modal');
 
-    if (docaNumSpan) docaNumSpan.innerText = numero;
-    if (textarea) textarea.value = '';
-
-    // Abre sempre o modal para garantir resposta visual em todos os cliques
     if (overlay) {
+        overlay.setAttribute('data-doca', pasteTargetDoca);
+        overlay.setAttribute('data-modo', pasteTargetModo);
         overlay.style.display = 'flex';
     }
+    if (applyPasteBtn) {
+        applyPasteBtn.setAttribute('data-doca', pasteTargetDoca);
+        applyPasteBtn.setAttribute('data-modo', pasteTargetModo);
+    }
+    if (docaNumSpan) docaNumSpan.innerText = pasteTargetDoca;
+    if (textarea) textarea.value = '';
 
     // Tenta ler automaticamente da área de transferência se o navegador permitir e houver texto
     if (navigator.clipboard && navigator.clipboard.readText) {
@@ -230,7 +248,7 @@ async function abrirModalColar(numero, modo) {
             const textoCopiado = await navigator.clipboard.readText();
             if (textoCopiado && textoCopiado.trim() && textarea) {
                 textarea.value = textoCopiado;
-                aplicarTextoNosCampos(numero, modo, textoCopiado);
+                aplicarTextoNosCampos(pasteTargetDoca, pasteTargetModo, textoCopiado);
             }
         } catch (err) {
             // Mantém o modal aberto para colagem manual
@@ -337,6 +355,7 @@ function interpretarTextoColado(texto) {
 }
 
 function aplicarTextoNosCampos(numero, modo, texto) {
+    if (!numero) return;
     const dados = interpretarTextoColado(texto);
     const prefix = modo === 'edit' ? 'edit' : 'input';
 
@@ -436,6 +455,7 @@ function abrirFormularioEdicao(numero) {
 }
 
 function enviarDadosDoca(numero, statusDoca, acaoTipo) {
+    if (!numero) return;
     const prefix = acaoTipo === 'editar' ? 'edit' : 'input';
     
     const nomeInput = document.getElementById(`${prefix}-nome-${numero}`);
@@ -476,6 +496,7 @@ function enviarDadosDoca(numero, statusDoca, acaoTipo) {
 }
 
 async function alterarStatusComDados(numeroDoca, novoStatus, dados) {
+    if (!numeroDoca) return;
     try {
         const response = await fetch(`/api/doca/${numeroDoca}/update`, {
             method: 'POST',
