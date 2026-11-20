@@ -1165,11 +1165,17 @@ function formatarMensagemWhatsApp(dados) {
         'Pátio Outbound Carregamento:',
         '',
         `⚪ NOME: ${dados.nome || 'NÃO INFORMADO'}`,
+        
         `⚪ REGIÃO: ${dados.regiao || 'NÃO INFORMADA'}`,
+        
         `⚪ PLACA: ${dados.placa || 'NÃO INFORMADA'}`,
+        
         `🚚 DOCA: ${dados.doca || ''}`,
+        
         `⚪ CHEGADA: ${dados.chegada || 'NÃO INFORMADA'}`,
+        
         `⚪ ETA: ${dados.eta || 'NÃO INFORMADO'}`,
+        
         `⚪ CPT: ${dados.cpt || 'NÃO INFORMADO'}`
     ];
     return linhas.join('\n');
