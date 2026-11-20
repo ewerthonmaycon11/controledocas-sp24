@@ -1,5 +1,115 @@
 let pasteTargetDoca = null;
 let pasteTargetModo = 'input';
+let audioCtxCpt = null;
+const alertasCptDisparados = new Set();
+
+function desbloquearAudioAlerta() {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    if (!audioCtxCpt) {
+        audioCtxCpt = new AudioContextClass();
+    }
+    if (audioCtxCpt.state === 'suspended') {
+        audioCtxCpt.resume().catch(() => {});
+    }
+}
+
+document.addEventListener('click', desbloquearAudioAlerta, { passive: true });
+document.addEventListener('keydown', desbloquearAudioAlerta, { passive: true });
+
+function tocarSomAlertaAlto() {
+    desbloquearAudioAlerta();
+    if (!audioCtxCpt) return;
+
+    const agora = audioCtxCpt.currentTime;
+    const pulsos = [0, 0.28, 0.56];
+
+    pulsos.forEach((offset) => {
+        const osc = audioCtxCpt.createOscillator();
+        const gain = audioCtxCpt.createGain();
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(980, agora + offset);
+        osc.frequency.exponentialRampToValueAtTime(1320, agora + offset + 0.14);
+
+        gain.gain.setValueAtTime(0.001, agora + offset);
+        gain.gain.exponentialRampToValueAtTime(0.85, agora + offset + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, agora + offset + 0.22);
+
+        osc.connect(gain);
+        gain.connect(audioCtxCpt.destination);
+
+        osc.start(agora + offset);
+        osc.stop(agora + offset + 0.23);
+    });
+}
+
+function mostrarAlertaVisualCpt(mensagem) {
+    let container = document.getElementById('cpt-alert-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'cpt-alert-container';
+        container.style.cssText = `
+            position: fixed;
+            top: 18px;
+            right: 18px;
+            z-index: 99999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 380px;
+            width: calc(100% - 36px);
+        `;
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    toast.style.cssText = `
+        background: linear-gradient(135deg, rgba(127, 29, 29, 0.96), rgba(15, 23, 42, 0.98));
+        border: 1px solid #f43f5e;
+        box-shadow: 0 0 24px rgba(244, 63, 94, 0.55), 0 12px 28px rgba(0, 0, 0, 0.7);
+        color: #fff;
+        padding: 14px 16px;
+        border-radius: 12px;
+        font-family: Inter, sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    `;
+
+    toast.innerHTML = `
+        <div style="font-size: 0.85rem; font-weight: 800; line-height: 1.35;">
+            🚨 ${mensagem}
+        </div>
+        <button type="button" style="
+            background: rgba(255,255,255,0.14);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.25);
+            border-radius: 8px;
+            padding: 4px 9px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            cursor: pointer;
+        ">OK</button>
+    `;
+
+    toast.querySelector('button').addEventListener('click', () => toast.remove());
+    container.appendChild(toast);
+
+    setTimeout(() => {
+        if (toast.parentNode) toast.remove();
+    }, 12000);
+}
+
+function notificarCptExpirado(numero, cptDatetimeStr) {
+    const chave = `${numero}-${cptDatetimeStr}`;
+    if (alertasCptDisparados.has(chave)) return;
+    alertasCptDisparados.add(chave);
+
+    tocarSomAlertaAlto();
+    mostrarAlertaVisualCpt(`Doca ${numero} CPT expirado, libere a doca.`);
+}
 
 document.addEventListener('DOMContentLoaded', () => {
     const openSidebarBtn = document.getElementById('open-sidebar');
@@ -183,7 +293,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (e.target.classList.contains('action-btn-cancel') || e.target.classList.contains('btn-edit-cancel')) {
-            fetchDocasStatus(); // Restaura o card original
+            fetchDocasStatus();
         }
 
         if (e.target.classList.contains('btn-edit-open')) {
@@ -242,7 +352,6 @@ async function abrirModalColar(numero, modo) {
     if (docaNumSpan) docaNumSpan.innerText = pasteTargetDoca;
     if (textarea) textarea.value = '';
 
-    // Tenta ler automaticamente da área de transferência se o navegador permitir e houver texto
     if (navigator.clipboard && navigator.clipboard.readText) {
         try {
             const textoCopiado = await navigator.clipboard.readText();
@@ -292,7 +401,6 @@ function interpretarTextoColado(texto) {
 
     if (!texto || !texto.trim()) return resultado;
 
-    // Normaliza texto mantendo quebras de linha, mas removendo emojis soltos para facilitar a leitura
     const textoNormalizado = texto
         .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}⚪🚚📦🔴🟢🟡⏳⏱️]/gu, ' ')
         .replace(/[ \t]+/g, ' ');
@@ -321,7 +429,6 @@ function interpretarTextoColado(texto) {
         const hoje = new Date();
         const anoAtual = hoje.getFullYear();
 
-        // Formato DD/MM/AAAA HH:MM ou DD/MM HH:MM
         const matchDataHora = cptVal.match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\s+(\d{1,2}):(\d{2})/);
         if (matchDataHora) {
             const dia = matchDataHora[1].padStart(2, '0');
@@ -333,7 +440,6 @@ function interpretarTextoColado(texto) {
             const min = matchDataHora[5].padStart(2, '0');
             resultado.cptDatetime = `${ano}-${mes}-${dia}T${hora}:${min}`;
         } else {
-            // Formato apenas HH:MM (assume data de hoje)
             const matchSoHora = cptVal.match(/(\d{1,2}):(\d{2})/);
             if (matchSoHora) {
                 const dia = String(hoje.getDate()).padStart(2, '0');
@@ -373,7 +479,7 @@ function gerarHtmlAcoesOcupada(doca) {
     const regiao = doca.regiao || 'NÃO INFORMADA';
     const placa = doca.placa || 'NÃO INFORMADA';
     const chegada = doca.chegada || 'NÃO INFORMADA';
-    const eta = doca.eta || 'NÃO INFORMADO';
+    const eta = doca.eta || 'NÃO INFORMADA';
     const cpt = doca.cpt || 'NÃO INFORMADO';
 
     return `
@@ -628,7 +734,6 @@ async function fetchDocasStatus() {
     const formularioAberto = Array.from(document.querySelectorAll('.form-atribuicao')).some(f => f.style.display === 'flex');
     if (formularioAberto) return;
 
-    // Se houver texto na barra de busca ativa, não faz polling automático para não sobrescrever a listagem filtrada
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.has('q') && urlParams.get('q').trim() !== '') return;
 
@@ -664,7 +769,7 @@ async function fetchDocasStatus() {
                     shareBtn.dataset.regiao = doca.regiao || 'NÃO INFORMADA';
                     shareBtn.dataset.placa = doca.placa || 'NÃO INFORMADA';
                     shareBtn.dataset.chegada = doca.chegada || 'NÃO INFORMADA';
-                    shareBtn.dataset.eta = doca.eta || 'NÃO INFORMADO';
+                    shareBtn.dataset.eta = doca.eta || 'NÃO INFORMADA';
                     shareBtn.dataset.cpt = doca.cpt || 'NÃO INFORMADO';
                 }
 
@@ -688,6 +793,7 @@ function atualizarCronometrosCPT() {
     const timers = document.querySelectorAll('[id^="cpt-timer-"]');
     
     timers.forEach(timerEl => {
+        const numero = timerEl.id.replace('cpt-timer-', '');
         const cptDatetimeStr = timerEl.getAttribute('data-cptdatetime');
         if (!cptDatetimeStr || cptDatetimeStr.trim() === '') {
             timerEl.innerText = '⏳ CPT: Não Informado';
@@ -706,6 +812,7 @@ function atualizarCronometrosCPT() {
 
         if (diffMs <= 0) {
             timerEl.innerHTML = `<span style="color: #f43f5e; font-weight: 800;">⚠️ CPT VENCIDO / EXPIRADO</span>`;
+            notificarCptExpirado(numero, cptDatetimeStr);
             return;
         }
 
