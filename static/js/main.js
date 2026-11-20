@@ -1,7 +1,9 @@
 let pasteTargetDoca = null;
 let pasteTargetModo = 'input';
+let checklistTargetDoca = null;
 let audioCtxCpt = null;
 const alertasCptDisparados = new Set();
+const alertasChecklist30MinDisparados = new Set();
 
 function desbloquearAudioAlerta() {
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -111,6 +113,250 @@ function notificarCptExpirado(numero, cptDatetimeStr) {
     mostrarAlertaVisualCpt(`Doca ${numero} CPT expirado, libere a doca.`);
 }
 
+function notificarChecklistSemFazer30Min(numero, placa, chegadaStr) {
+    const chave = `chk30-${numero}-${placa || ''}-${chegadaStr || ''}`;
+    if (alertasChecklist30MinDisparados.has(chave)) return;
+    alertasChecklist30MinDisparados.add(chave);
+
+    tocarSomAlertaAlto();
+    const refVeiculo = placa ? ` (${placa})` : '';
+    mostrarAlertaVisualCpt(`Doca ${numero}${refVeiculo} está há mais de 30 min no pátio e NÃO está feito o check list!`);
+}
+
+function limparAlertasChecklistDoca(numero) {
+    for (const chave of Array.from(alertasChecklist30MinDisparados)) {
+        if (chave.startsWith(`chk30-${numero}-`)) {
+            alertasChecklist30MinDisparados.delete(chave);
+        }
+    }
+}
+
+function garantirModalChecklist() {
+    let overlay = document.getElementById('checklist-modal-overlay');
+    if (overlay) return overlay;
+
+    overlay = document.createElement('div');
+    overlay.id = 'checklist-modal-overlay';
+    overlay.style.cssText = `
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(2, 6, 23, 0.78);
+        backdrop-filter: blur(6px);
+        z-index: 99998;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+    `;
+
+    overlay.innerHTML = `
+        <div style="
+            background: linear-gradient(160deg, #162238 0%, #0b1220 100%);
+            border: 1px solid rgba(56, 189, 248, 0.35);
+            border-radius: 16px;
+            padding: 20px;
+            max-width: 420px;
+            width: 100%;
+            color: #f8fafc;
+            font-family: Inter, sans-serif;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85);
+        ">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h3 style="margin: 0; font-size: 0.95rem; font-weight: 800; color: #38bdf8;">
+                    CHECK LIST — DOCA <span id="checklist-modal-doca-num"></span>
+                </h3>
+                <button type="button" id="close-checklist-modal" style="
+                    background: transparent;
+                    border: none;
+                    color: #94a3b8;
+                    font-size: 1.15rem;
+                    font-weight: 800;
+                    cursor: pointer;
+                ">✕</button>
+            </div>
+
+            <div id="checklist-modal-veiculo-info" style="
+                font-size: 0.78rem;
+                color: #cbd5e1;
+                background: rgba(15, 23, 42, 0.7);
+                border: 1px solid rgba(255, 255, 255, 0.07);
+                border-radius: 10px;
+                padding: 10px 12px;
+                margin-bottom: 14px;
+                line-height: 1.45;
+            "></div>
+
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 12px; font-size: 0.85rem; font-weight: 700;">
+                <input type="checkbox" id="checklist-modal-feito-checkbox" style="width: 18px; height: 18px; accent-color: #10b981; cursor: pointer;">
+                <span>Check list feito</span>
+            </label>
+
+            <label style="display: block; font-size: 0.7rem; font-weight: 700; color: #94a3b8; margin-bottom: 4px;">
+                OBSERVAÇÃO (OPCIONAL):
+            </label>
+            <input type="text" id="checklist-modal-obs-input" placeholder="Ex: Lacre conferido, carga ok..." maxlength="200" style="
+                width: 100%;
+                box-sizing: border-box;
+                padding: 8px 10px;
+                border-radius: 8px;
+                border: 1px solid rgba(255, 255, 255, 0.14);
+                background: rgba(9, 13, 22, 0.85);
+                color: #f8fafc;
+                font-size: 0.8rem;
+                margin-bottom: 16px;
+            ">
+
+            <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                <button type="button" id="cancel-checklist-modal" style="
+                    padding: 8px 14px;
+                    border-radius: 8px;
+                    border: 1px solid rgba(255, 255, 255, 0.14);
+                    background: rgba(30, 41, 59, 0.8);
+                    color: #cbd5e1;
+                    font-size: 0.78rem;
+                    font-weight: 700;
+                    cursor: pointer;
+                ">Cancelar</button>
+                <button type="button" id="save-checklist-modal" style="
+                    padding: 8px 16px;
+                    border-radius: 8px;
+                    border: none;
+                    background: linear-gradient(135deg, #10b981, #059669);
+                    color: #06130e;
+                    font-size: 0.78rem;
+                    font-weight: 800;
+                    cursor: pointer;
+                ">Confirmar</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) fecharModalChecklist();
+    });
+    document.getElementById('close-checklist-modal').addEventListener('click', fecharModalChecklist);
+    document.getElementById('cancel-checklist-modal').addEventListener('click', fecharModalChecklist);
+    document.getElementById('save-checklist-modal').addEventListener('click', salvarChecklistModal);
+
+    return overlay;
+}
+
+function abrirModalChecklist(numero) {
+    if (!numero) return;
+    checklistTargetDoca = String(numero);
+
+    const overlay = garantirModalChecklist();
+    const plateDisplay = document.getElementById(`plate-display-${numero}`);
+    const checklistBtn = document.querySelector(`.btn-checklist-box[data-doca="${numero}"]`);
+
+    const feitoAtual = checklistBtn
+        ? checklistBtn.getAttribute('data-checklist-feito') === 'true'
+        : (plateDisplay && plateDisplay.getAttribute('data-checklist-feito') === 'true');
+
+    const obsAtual = checklistBtn
+        ? (checklistBtn.getAttribute('data-checklist-obs') || '')
+        : (plateDisplay ? (plateDisplay.getAttribute('data-checklist-obs') || '') : '');
+
+    const placa = plateDisplay ? (plateDisplay.getAttribute('data-placa') || 'NÃO INFORMADA') : 'NÃO INFORMADA';
+    const nome = plateDisplay ? (plateDisplay.getAttribute('data-nome') || 'NÃO INFORMADO') : 'NÃO INFORMADO';
+    const regiao = plateDisplay ? (plateDisplay.getAttribute('data-regiao') || 'NÃO INFORMADA') : 'NÃO INFORMADA';
+
+    document.getElementById('checklist-modal-doca-num').innerText = checklistTargetDoca;
+    document.getElementById('checklist-modal-veiculo-info').innerHTML = `
+        <strong>PLACA:</strong> ${placa} &nbsp;|&nbsp; <strong>NOME:</strong> ${nome}<br>
+        <strong>REGIÃO:</strong> ${regiao}
+    `;
+    document.getElementById('checklist-modal-feito-checkbox').checked = Boolean(feitoAtual);
+    document.getElementById('checklist-modal-obs-input').value = obsAtual;
+
+    overlay.style.display = 'flex';
+}
+
+function fecharModalChecklist() {
+    const overlay = document.getElementById('checklist-modal-overlay');
+    if (overlay) overlay.style.display = 'none';
+    checklistTargetDoca = null;
+}
+
+async function salvarChecklistModal() {
+    if (!checklistTargetDoca) return;
+    const numero = checklistTargetDoca;
+    const feito = document.getElementById('checklist-modal-feito-checkbox').checked;
+    const obs = document.getElementById('checklist-modal-obs-input').value.trim();
+
+    try {
+        const response = await fetch(`/api/doca/${numero}/checklist`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                checklist_feito: feito,
+                checklist_obs: obs
+            })
+        });
+
+        if (response.ok) {
+            const resultado = await response.json();
+            if (resultado.success && resultado.doca) {
+                if (resultado.doca.checklist_feito) {
+                    limparAlertasChecklistDoca(numero);
+                }
+                atualizarCardNaTela(resultado.doca);
+                fecharModalChecklist();
+                fetchDocasStatus();
+                return;
+            }
+        }
+        alert('Erro ao salvar o check list.');
+    } catch (err) {
+        console.error('Erro ao salvar check list:', err);
+        alert('Erro de conexão ao salvar o check list.');
+    }
+}
+
+function gerarQuadradoChecklistHtml(doca) {
+    const feito = Boolean(doca.checklist_feito);
+    const obs = doca.checklist_obs || '';
+    const usuario = doca.checklist_usuario || '';
+    const dataHora = doca.checklist_data_hora || '';
+    const icone = feito ? '✅' : '❌';
+    const titulo = feito
+        ? `Check list feito${usuario ? ' por ' + usuario : ''}${dataHora ? ' (' + dataHora + ')' : ''} — Clique para alterar`
+        : 'Check list NÃO feito — Clique para marcar check list feito';
+
+    return `
+        <button
+            type="button"
+            class="btn-checklist-box"
+            title="${titulo}"
+            aria-label="Check list da Doca ${doca.numero}"
+            data-doca="${doca.numero}"
+            data-checklist-feito="${feito ? 'true' : 'false'}"
+            data-checklist-obs="${obs}"
+            data-checklist-usuario="${usuario}"
+            data-checklist-data-hora="${dataHora}"
+            style="
+                width: 28px;
+                height: 28px;
+                min-width: 28px;
+                border-radius: 6px;
+                border: 1px solid ${feito ? 'rgba(16, 185, 129, 0.7)' : 'rgba(244, 63, 94, 0.7)'};
+                background: ${feito ? 'rgba(16, 185, 129, 0.18)' : 'rgba(244, 63, 94, 0.18)'};
+                color: ${feito ? '#34d399' : '#fb7185'};
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 0.85rem;
+                font-weight: 800;
+                cursor: pointer;
+                padding: 0;
+                line-height: 1;
+            "
+        >${icone}</button>
+    `;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const openSidebarBtn = document.getElementById('open-sidebar');
     const closeSidebarBtn = document.getElementById('close-sidebar');
@@ -203,6 +449,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const nome = plateDisplay.getAttribute('data-nome') || '';
                 const chegada = plateDisplay.getAttribute('data-chegada') || '';
                 const eta = plateDisplay.getAttribute('data-eta') || '';
+                const checklistFeito = plateDisplay.getAttribute('data-checklist-feito') === 'true';
 
                 if (!modoDetalhado) {
                     plateDisplay.innerHTML = `
@@ -221,7 +468,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div style="margin-top: 6px; font-size: 0.7rem; font-weight: 700; color: #f43f5e;" id="cpt-timer-${numero}" data-cptdatetime="${cptDatetime}">
                             ⏳ CPT: Calculando...
                         </div>
-                        <div style="margin-top: 4px; font-size: 0.7rem; font-weight: 700; color: #10b981;" id="chegada-timer-${numero}" data-chegada="${chegada}">
+                        <div style="margin-top: 4px; font-size: 0.7rem; font-weight: 700; color: #10b981;" id="chegada-timer-${numero}" data-chegada="${chegada}" data-placa="${placa}" data-checklist-feito="${checklistFeito ? 'true' : 'false'}">
                             ⏱️ TEMPO NO PÁTIO: 00:00:00
                         </div>
                         <div style="display: flex; gap: 4px; margin-top: 8px;">
@@ -241,7 +488,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div style="margin-top: 6px; font-size: 0.7rem; font-weight: 700; color: #f43f5e;" id="cpt-timer-${numero}" data-cptdatetime="${cptDatetime}">
                             ⏳ CPT: Calculando...
                         </div>
-                        <div style="margin-top: 4px; font-size: 0.7rem; font-weight: 700; color: #10b981;" id="chegada-timer-${numero}" data-chegada="${chegada}">
+                        <div style="margin-top: 4px; font-size: 0.7rem; font-weight: 700; color: #10b981;" id="chegada-timer-${numero}" data-chegada="${chegada}" data-placa="${placa}" data-checklist-feito="${checklistFeito ? 'true' : 'false'}">
                             ⏱️ TEMPO NO PÁTIO: 00:00:00
                         </div>
                         <small style="color: var(--text-muted); margin-top: 6px; font-size: 0.65rem; text-align: center; cursor: pointer;">🔍 Clique para ver detalhes / editar</small>
@@ -253,8 +500,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Eventos para Botões de Ação, Edição, Salvamento, WhatsApp e Colar
+    // Eventos para Botões de Ação, Edição, Salvamento, WhatsApp, Colar e Check List
     document.body.addEventListener('click', async (e) => {
+        const checklistBtn = e.target.closest('.btn-checklist-box');
+        if (checklistBtn) {
+            const card = checklistBtn.closest('.dock-card');
+            const numero = checklistBtn.getAttribute('data-doca') || (card && card.getAttribute('data-numero'));
+            if (numero) abrirModalChecklist(numero);
+            return;
+        }
+
         const shareBtn = e.target.closest('.btn-share-whatsapp');
         if (shareBtn) {
             const dados = {
@@ -485,7 +740,7 @@ function gerarHtmlAcoesOcupada(doca) {
     return `
         <div class="dock-ocupada-actions">
             <button type="button" class="btn-action action-btn-release" data-numero="${doca.numero}">Liberar Doca</button>
-            <div class="dock-bottom-mini-actions">
+            <div class="dock-bottom-mini-actions" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
                 <button
                     type="button"
                     class="btn-share-whatsapp"
@@ -511,6 +766,7 @@ function gerarHtmlAcoesOcupada(doca) {
                 >
                     📋 Colar
                 </button>
+                ${gerarQuadradoChecklistHtml(doca)}
             </div>
         </div>
     `;
@@ -607,6 +863,9 @@ async function alterarStatusComDados(numeroDoca, novoStatus, dados) {
         if (response.ok) {
             const resultado = await response.json();
             if (resultado.success) {
+                if (novoStatus === 'LIVRE' || dados.acao === 'status') {
+                    limparAlertasChecklistDoca(numeroDoca);
+                }
                 atualizarCardNaTela(resultado.doca);
                 fetchDocasStatus();
             }
@@ -625,12 +884,7 @@ function atualizarCardNaTela(doca) {
     card.className = `dock-card ${doca.status.toLowerCase()}`;
     card.setAttribute('data-status', doca.status);
 
-    const light = document.getElementById(`light-${doca.numero}`);
-    if (light) light.className = `status-light ${doca.status.toLowerCase()}`;
-
-    const statusText = document.getElementById(`status-text-${doca.numero}`);
-    if (statusText) statusText.innerText = doca.status;
-
+    const checklistFeito = Boolean(doca.checklist_feito);
     const plateDisplay = document.getElementById(`plate-display-${doca.numero}`);
     if (plateDisplay) {
         plateDisplay.setAttribute('data-placa', doca.placa || '');
@@ -640,6 +894,10 @@ function atualizarCardNaTela(doca) {
         plateDisplay.setAttribute('data-nome', doca.nome || '');
         plateDisplay.setAttribute('data-chegada', doca.chegada || '');
         plateDisplay.setAttribute('data-eta', doca.eta || '');
+        plateDisplay.setAttribute('data-checklist-feito', checklistFeito ? 'true' : 'false');
+        plateDisplay.setAttribute('data-checklist-obs', doca.checklist_obs || '');
+        plateDisplay.setAttribute('data-checklist-usuario', doca.checklist_usuario || '');
+        plateDisplay.setAttribute('data-checklist-data-hora', doca.checklist_data_hora || '');
 
         const modoDetalhado = plateDisplay.getAttribute('data-detalhes') === 'true';
 
@@ -661,7 +919,7 @@ function atualizarCardNaTela(doca) {
                     <div style="margin-top: 6px; font-size: 0.7rem; font-weight: 700; color: #f43f5e;" id="cpt-timer-${doca.numero}" data-cptdatetime="${doca.cpt_datetime || ''}">
                         ⏳ CPT: Calculando...
                     </div>
-                    <div style="margin-top: 4px; font-size: 0.7rem; font-weight: 700; color: #10b981;" id="chegada-timer-${doca.numero}" data-chegada="${doca.chegada || ''}">
+                    <div style="margin-top: 4px; font-size: 0.7rem; font-weight: 700; color: #10b981;" id="chegada-timer-${doca.numero}" data-chegada="${doca.chegada || ''}" data-placa="${doca.placa || ''}" data-checklist-feito="${checklistFeito ? 'true' : 'false'}">
                         ⏱️ TEMPO NO PÁTIO: 00:00:00
                     </div>
                     <div style="display: flex; gap: 4px; margin-top: 8px;">
@@ -680,7 +938,7 @@ function atualizarCardNaTela(doca) {
                     <div style="margin-top: 6px; font-size: 0.7rem; font-weight: 700; color: #f43f5e;" id="cpt-timer-${doca.numero}" data-cptdatetime="${doca.cpt_datetime || ''}">
                         ⏳ CPT: Calculando...
                     </div>
-                    <div style="margin-top: 4px; font-size: 0.7rem; font-weight: 700; color: #10b981;" id="chegada-timer-${doca.numero}" data-chegada="${doca.chegada || ''}">
+                    <div style="margin-top: 4px; font-size: 0.7rem; font-weight: 700; color: #10b981;" id="chegada-timer-${doca.numero}" data-chegada="${doca.chegada || ''}" data-placa="${doca.placa || ''}" data-checklist-feito="${checklistFeito ? 'true' : 'false'}">
                         ⏱️ TEMPO NO PÁTIO: 00:00:00
                     </div>
                     <small style="color: var(--text-muted); margin-top: 6px; font-size: 0.65rem; text-align: center; cursor: pointer;">🔍 Clique para ver detalhes / editar</small>
@@ -751,6 +1009,7 @@ async function fetchDocasStatus() {
 
             const card = document.getElementById(`doca-card-${doca.numero}`);
             if (card) {
+                const checklistFeito = Boolean(doca.checklist_feito);
                 const plateDisplay = document.getElementById(`plate-display-${doca.numero}`);
                 if (plateDisplay) {
                     plateDisplay.setAttribute('data-placa', doca.placa || '');
@@ -760,6 +1019,16 @@ async function fetchDocasStatus() {
                     plateDisplay.setAttribute('data-nome', doca.nome || '');
                     plateDisplay.setAttribute('data-chegada', doca.chegada || '');
                     plateDisplay.setAttribute('data-eta', doca.eta || '');
+                    plateDisplay.setAttribute('data-checklist-feito', checklistFeito ? 'true' : 'false');
+                    plateDisplay.setAttribute('data-checklist-obs', doca.checklist_obs || '');
+                    plateDisplay.setAttribute('data-checklist-usuario', doca.checklist_usuario || '');
+                    plateDisplay.setAttribute('data-checklist-data-hora', doca.checklist_data_hora || '');
+                }
+
+                const chegadaTimer = document.getElementById(`chegada-timer-${doca.numero}`);
+                if (chegadaTimer) {
+                    chegadaTimer.setAttribute('data-placa', doca.placa || '');
+                    chegadaTimer.setAttribute('data-checklist-feito', checklistFeito ? 'true' : 'false');
                 }
 
                 const shareBtn = card.querySelector('.btn-share-whatsapp');
@@ -771,6 +1040,19 @@ async function fetchDocasStatus() {
                     shareBtn.dataset.chegada = doca.chegada || 'NÃO INFORMADA';
                     shareBtn.dataset.eta = doca.eta || 'NÃO INFORMADA';
                     shareBtn.dataset.cpt = doca.cpt || 'NÃO INFORMADO';
+                }
+
+                const checklistBtn = card.querySelector('.btn-checklist-box');
+                if (checklistBtn && doca.status === 'OCUPADA') {
+                    const icone = checklistFeito ? '✅' : '❌';
+                    checklistBtn.innerHTML = icone;
+                    checklistBtn.setAttribute('data-checklist-feito', checklistFeito ? 'true' : 'false');
+                    checklistBtn.setAttribute('data-checklist-obs', doca.checklist_obs || '');
+                    checklistBtn.setAttribute('data-checklist-usuario', doca.checklist_usuario || '');
+                    checklistBtn.setAttribute('data-checklist-data-hora', doca.checklist_data_hora || '');
+                    checklistBtn.style.borderColor = checklistFeito ? 'rgba(16, 185, 129, 0.7)' : 'rgba(244, 63, 94, 0.7)';
+                    checklistBtn.style.background = checklistFeito ? 'rgba(16, 185, 129, 0.18)' : 'rgba(244, 63, 94, 0.18)';
+                    checklistBtn.style.color = checklistFeito ? '#34d399' : '#fb7185';
                 }
 
                 if (card.getAttribute('data-status') !== doca.status) {
@@ -832,6 +1114,7 @@ function atualizarCronometrosChegada() {
     const timers = document.querySelectorAll('[id^="chegada-timer-"]');
     
     timers.forEach(timerEl => {
+        const numero = timerEl.id.replace('chegada-timer-', '');
         const chegadaStr = timerEl.getAttribute('data-chegada');
         if (!chegadaStr || chegadaStr.trim() === '' || chegadaStr.includes('NÃO')) {
             timerEl.innerText = '⏱️ TEMPO NO PÁTIO: Não Informado';
@@ -855,6 +1138,14 @@ function atualizarCronometrosChegada() {
         let diffMs = agora - inicio;
         if (diffMs < 0) {
             diffMs = 0; 
+        }
+
+        const trintaMinutosMs = 30 * 60 * 1000;
+        const checklistFeito = timerEl.getAttribute('data-checklist-feito') === 'true';
+        const placa = timerEl.getAttribute('data-placa') || '';
+
+        if (diffMs >= trintaMinutosMs && !checklistFeito) {
+            notificarChecklistSemFazer30Min(numero, placa, chegadaStr);
         }
 
         const horas = Math.floor(diffMs / (1000 * 60 * 60));
