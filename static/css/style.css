@@ -675,8 +675,7 @@ body {
     box-shadow: 0 0 15px rgba(14, 165, 233, 0.4);
 }
 
-
-
+/* Botões de Compartilhar WhatsApp e Colar Texto */
 .dock-ocupada-actions {
     display: flex;
     flex-direction: column;
@@ -689,6 +688,13 @@ body {
 .dock-ocupada-actions .action-btn-release {
     width: 100%;
     margin-top: 0;
+}
+
+.dock-bottom-mini-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
 }
 
 .btn-share-whatsapp {
@@ -709,4 +715,97 @@ body {
 .btn-share-whatsapp:hover {
     background: rgba(37, 211, 102, 0.28);
     transform: translateY(-1px);
+}
+
+.btn-paste-data {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    border-radius: 6px;
+    border: 1px solid rgba(14, 165, 233, 0.45);
+    background: rgba(14, 165, 233, 0.14);
+    color: #38bdf8;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.btn-paste-data:hover {
+    background: rgba(14, 165, 233, 0.28);
+    transform: translateY(-1px);
+}
+
+/* Modal para Colar Texto */
+.paste-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(5, 7, 10, 0.8);
+    backdrop-filter: blur(6px);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.paste-modal-card {
+    background: linear-gradient(160deg, var(--bg-card), #0f172a);
+    border: 1px solid var(--border-glow);
+    border-radius: 16px;
+    padding: 1.5rem;
+    width: 100%;
+    max-width: 440px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.85);
+}
+
+.paste-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.paste-modal-header h4 {
+    font-size: 1rem;
+    color: var(--accent-blue);
+    font-weight: 800;
+}
+
+.paste-modal-close {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.4rem;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.paste-modal-hint {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 0.75rem;
+}
+
+.paste-modal-textarea {
+    width: 100%;
+    padding: 10px;
+    background: #05070a;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    color: #fff;
+    font-size: 0.85rem;
+    resize: vertical;
+    margin-bottom: 0.9rem;
+}
+
+.paste-modal-textarea:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+}
+
+.paste-modal-actions {
+    display: flex;
+    gap: 8px;
 }
