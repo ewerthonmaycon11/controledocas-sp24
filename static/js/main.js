@@ -56,7 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     aplicarTextoNosCampos(numeroAlvo, modoAlvo, texto);
                     fecharModalColar();
                 }
-            }, 50);
+            }, 80);
         });
     }
 
@@ -265,6 +265,20 @@ function fecharModalColar() {
     if (overlay) overlay.style.display = 'none';
 }
 
+function extrairCampoPorRotulo(textoLimpo, padraoRotulo, todosRotulosRegex) {
+    const regex = new RegExp(
+        `(?:^|[\\r\\n\\s•\\-\\*\\|]+)(?:${padraoRotulo})\\s*[:\\-]?\\s*(.+?)(?=(?:[\\r\\n]+|(?:[\\s•\\-\\*\\|]+)?(?:${todosRotulosRegex})\\s*[:\\-]?)|$)`,
+        'i'
+    );
+    const match = textoLimpo.match(regex);
+    if (!match || !match[1]) return '';
+
+    return match[1]
+        .replace(/^[\s•\-\*⚪🚚📦🔴🟢🟡⏳⏱️]+/gu, '')
+        .replace(/[\s•\-\*⚪🚚📦🔴🟢🟡⏳⏱️]+$/gu, '')
+        .trim();
+}
+
 function interpretarTextoColado(texto) {
     const resultado = {
         nome: '',
@@ -276,71 +290,51 @@ function interpretarTextoColado(texto) {
         cptDatetime: ''
     };
 
-    const linhas = texto.split(/\r?\n/);
+    if (!texto || !texto.trim()) return resultado;
 
-    linhas.forEach((linhaOriginal) => {
-        // Remove emojis e símbolos comuns no início da linha
-        const linha = linhaOriginal
-            .replace(/^[\s•\-\*⚪🚚📦🔴🟢🟡⏳⏱️]+/gu, '')
-            .trim();
+    // Normaliza texto mantendo quebras de linha, mas removendo emojis soltos para facilitar a leitura
+    const textoNormalizado = texto
+        .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}⚪🚚📦🔴🟢🟡⏳⏱️]/gu, ' ')
+        .replace(/[ \t]+/g, ' ');
 
-        if (!linha) return;
+    const todosRotulos = 'NOME|MOTORISTA|REGI[ÃA]O|REGIAO|DESTINO|PLACA|DOCA|CHEGADA|ETA|CPT';
 
-        const matchNome = linha.match(/^(?:NOME|MOTORISTA)\s*[:\-]\s*(.+)$/i);
-        if (matchNome) {
-            resultado.nome = matchNome[1].trim();
-            return;
-        }
+    const nomeVal = extrairCampoPorRotulo(textoNormalizado, 'NOME|MOTORISTA', todosRotulos);
+    if (nomeVal) resultado.nome = nomeVal;
 
-        const matchRegiao = linha.match(/^(?:REGI[ÃA]O|DESTINO)\s*[:\-]\s*(.+)$/i);
-        if (matchRegiao) {
-            resultado.regiao = matchRegiao[1].trim();
-            return;
-        }
+    const regiaoVal = extrairCampoPorRotulo(textoNormalizado, 'REGI[ÃA]O|REGIAO|DESTINO', todosRotulos);
+    if (regiaoVal) resultado.regiao = regiaoVal;
 
-        const matchPlaca = linha.match(/^PLACA\s*[:\-]\s*(.+)$/i);
-        if (matchPlaca) {
-            resultado.placa = matchPlaca[1].trim().toUpperCase();
-            return;
-        }
+    const placaVal = extrairCampoPorRotulo(textoNormalizado, 'PLACA', todosRotulos);
+    if (placaVal) resultado.placa = placaVal.toUpperCase();
 
-        const matchChegada = linha.match(/^CHEGADA\s*[:\-]\s*(.+)$/i);
-        if (matchChegada) {
-            resultado.chegada = matchChegada[1].trim();
-            return;
-        }
+    const chegadaVal = extrairCampoPorRotulo(textoNormalizado, 'CHEGADA', todosRotulos);
+    if (chegadaVal) resultado.chegada = chegadaVal;
 
-        const matchEta = linha.match(/^ETA\s*[:\-]\s*(.+)$/i);
-        if (matchEta) {
-            resultado.eta = matchEta[1].trim();
-            return;
-        }
+    const etaVal = extrairCampoPorRotulo(textoNormalizado, 'ETA', todosRotulos);
+    if (etaVal) resultado.eta = etaVal;
 
-        const matchCpt = linha.match(/^CPT\s*[:\-]\s*(.+)$/i);
-        if (matchCpt) {
-            const valorCpt = matchCpt[1].trim();
-            resultado.cptStr = valorCpt;
+    const cptVal = extrairCampoPorRotulo(textoNormalizado, 'CPT', todosRotulos);
+    if (cptVal) {
+        resultado.cptStr = cptVal;
 
-            // Tenta converter para YYYY-MM-DDTHH:MM para preencher input datetime-local
-            const hoje = new Date();
-            const anoAtual = hoje.getFullYear();
+        const hoje = new Date();
+        const anoAtual = hoje.getFullYear();
 
-            // Formato DD/MM/AAAA HH:MM ou DD/MM HH:MM
-            const matchDataHora = valorCpt.match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\s+(\d{1,2}):(\d{2})/);
-            if (matchDataHora) {
-                const dia = matchDataHora[1].padStart(2, '0');
-                const mes = matchDataHora[2].padStart(2, '0');
-                const ano = matchDataHora[3]
-                    ? (matchDataHora[3].length === 2 ? `20${matchDataHora[3]}` : matchDataHora[3])
-                    : String(anoAtual);
-                const hora = matchDataHora[4].padStart(2, '0');
-                const min = matchDataHora[5].padStart(2, '0');
-                resultado.cptDatetime = `${ano}-${mes}-${dia}T${hora}:${min}`;
-                return;
-            }
-
+        // Formato DD/MM/AAAA HH:MM ou DD/MM HH:MM
+        const matchDataHora = cptVal.match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\s+(\d{1,2}):(\d{2})/);
+        if (matchDataHora) {
+            const dia = matchDataHora[1].padStart(2, '0');
+            const mes = matchDataHora[2].padStart(2, '0');
+            const ano = matchDataHora[3]
+                ? (matchDataHora[3].length === 2 ? `20${matchDataHora[3]}` : matchDataHora[3])
+                : String(anoAtual);
+            const hora = matchDataHora[4].padStart(2, '0');
+            const min = matchDataHora[5].padStart(2, '0');
+            resultado.cptDatetime = `${ano}-${mes}-${dia}T${hora}:${min}`;
+        } else {
             // Formato apenas HH:MM (assume data de hoje)
-            const matchSoHora = valorCpt.match(/^(\d{1,2}):(\d{2})$/);
+            const matchSoHora = cptVal.match(/(\d{1,2}):(\d{2})/);
             if (matchSoHora) {
                 const dia = String(hoje.getDate()).padStart(2, '0');
                 const mes = String(hoje.getMonth() + 1).padStart(2, '0');
@@ -349,7 +343,7 @@ function interpretarTextoColado(texto) {
                 resultado.cptDatetime = `${anoAtual}-${mes}-${dia}T${hora}:${min}`;
             }
         }
-    });
+    }
 
     return resultado;
 }
