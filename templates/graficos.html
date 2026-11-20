@@ -1,103 +1,301 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="sector-divider" style="margin-bottom: 1.5rem;">
-    <h2>DASHBOARD DE DESEMPENHO E GRÁFICOS ANALÍTICOS</h2>
-</div>
+<style>
+    .analytics-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
 
-<!-- Filtro de Período Geral -->
-<div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 1.5rem; gap: 10px; flex-wrap: wrap;">
-    <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 700;">FILTRAR PERÍODO:</span>
-    <button class="btn-periodo active" data-periodo="dia" style="padding: 8px 16px; border-radius: 8px; border: 1px solid var(--accent-blue); background: var(--accent-blue); color: #090d16; font-weight: 700; cursor: pointer;">Hoje</button>
-    <button class="btn-periodo" data-periodo="semana" style="padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-muted); font-weight: 700; cursor: pointer;">Últimos 7 Dias</button>
-    <button class="btn-periodo" data-periodo="mes" style="padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-muted); font-weight: 700; cursor: pointer;">Últimos 30 Dias</button>
+    .analytics-header h2 {
+        font-size: 1rem;
+        letter-spacing: 1.5px;
+        color: #38bdf8;
+        font-weight: 800;
+        margin: 0;
+    }
+
+    .filter-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .filter-label {
+        font-size: 0.72rem;
+        color: #94a3b8;
+        font-weight: 800;
+        letter-spacing: 0.8px;
+        margin-right: 4px;
+    }
+
+    .btn-periodo, .btn-turno {
+        padding: 7px 14px;
+        border-radius: 9px;
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        background: rgba(19, 28, 46, 0.75);
+        color: #94a3b8;
+        font-size: 0.78rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        backdrop-filter: blur(8px);
+    }
+
+    .btn-periodo:hover, .btn-turno:hover {
+        color: #f8fafc;
+        border-color: rgba(56, 189, 248, 0.45);
+        transform: translateY(-1px);
+    }
+
+    .btn-periodo.active, .btn-turno.active {
+        background: linear-gradient(135deg, #0ea5e9, #2563eb);
+        color: #ffffff;
+        border-color: rgba(56, 189, 248, 0.7);
+        box-shadow: 0 0 18px rgba(14, 165, 233, 0.35);
+    }
+
+    .kpi-pro-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1.25rem;
+        margin-bottom: 2rem;
+    }
+
+    .kpi-pro-card {
+        position: relative;
+        background: linear-gradient(160deg, rgba(22, 34, 56, 0.88) 0%, rgba(11, 18, 32, 0.92) 100%);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 16px;
+        padding: 1.35rem 1.4rem;
+        overflow: hidden;
+        box-shadow: 0 14px 32px -12px rgba(0, 0, 0, 0.65);
+        transition: transform 0.25s ease, border-color 0.25s ease;
+    }
+
+    .kpi-pro-card:hover {
+        transform: translateY(-3px);
+        border-color: rgba(56, 189, 248, 0.28);
+    }
+
+    .kpi-pro-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, #0ea5e9, #38bdf8);
+    }
+
+    .kpi-pro-card.success::before {
+        background: linear-gradient(90deg, #10b981, #34d399);
+    }
+
+    .kpi-pro-card.hub::before {
+        background: linear-gradient(90deg, #8b5cf6, #a78bfa);
+    }
+
+    .kpi-pro-card.soc::before {
+        background: linear-gradient(90deg, #f59e0b, #fbbf24);
+    }
+
+    .kpi-pro-title {
+        display: block;
+        font-size: 0.7rem;
+        font-weight: 800;
+        letter-spacing: 1px;
+        color: #94a3b8;
+        text-transform: uppercase;
+    }
+
+    .kpi-pro-value {
+        display: block;
+        font-size: 2rem;
+        font-weight: 800;
+        margin-top: 0.5rem;
+        color: #f8fafc;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.5px;
+    }
+
+    .kpi-pro-card.success .kpi-pro-value { color: #34d399; }
+    .kpi-pro-card.hub .kpi-pro-value { color: #a78bfa; }
+    .kpi-pro-card.soc .kpi-pro-value { color: #fbbf24; }
+
+    .charts-pro-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .chart-glass-card {
+        background: linear-gradient(160deg, rgba(20, 31, 51, 0.86) 0%, rgba(10, 16, 28, 0.92) 100%);
+        backdrop-filter: blur(14px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 18px;
+        padding: 1.35rem 1.4rem;
+        box-shadow: 0 16px 36px -14px rgba(0, 0, 0, 0.72);
+        transition: border-color 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    .chart-glass-card:hover {
+        border-color: rgba(56, 189, 248, 0.28);
+        box-shadow: 0 20px 42px -14px rgba(0, 0, 0, 0.8), 0 0 22px rgba(14, 165, 233, 0.08);
+    }
+
+    .chart-glass-card.full-span {
+        grid-column: 1 / -1;
+    }
+
+    .chart-card-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 1rem;
+        padding-bottom: 0.65rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .chart-card-title {
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.9px;
+        color: #cbd5e1;
+        text-transform: uppercase;
+        margin: 0;
+    }
+
+    .chart-canvas-wrap {
+        position: relative;
+        height: 260px;
+        width: 100%;
+    }
+
+    .chart-canvas-wrap.tall {
+        height: 295px;
+    }
+</style>
+
+<div class="analytics-header">
+    <h2>DASHBOARD DE DESEMPENHO E GRÁFICOS ANALÍTICOS</h2>
+
+    <div class="filter-group">
+        <span class="filter-label">FILTRAR PERÍODO:</span>
+        <button type="button" class="btn-periodo active" data-periodo="dia">Hoje</button>
+        <button type="button" class="btn-periodo" data-periodo="semana">Últimos 7 Dias</button>
+        <button type="button" class="btn-periodo" data-periodo="mes">Últimos 30 Dias</button>
+    </div>
 </div>
 
 <!-- Cards com Métricas Gerais -->
-<section class="metrics-grid" style="margin-bottom: 2rem;">
-    <div class="metric-card">
-        <span class="metric-title">TOTAL DE CARREGAMENTOS</span>
-        <span class="metric-value" id="kpi-total">0</span>
+<section class="kpi-pro-grid">
+    <div class="kpi-pro-card">
+        <span class="kpi-pro-title">TOTAL DE CARREGAMENTOS</span>
+        <span class="kpi-pro-value" id="kpi-total">0</span>
     </div>
-    <div class="metric-card success">
-        <span class="metric-title">TEMPO MÉDIO GERAL NO PÁTIO</span>
-        <span class="metric-value" id="kpi-tempo-medio">0 min</span>
+    <div class="kpi-pro-card success">
+        <span class="kpi-pro-title">TEMPO MÉDIO GERAL NO PÁTIO</span>
+        <span class="kpi-pro-value" id="kpi-tempo-medio">0 min</span>
     </div>
-    <div class="metric-card hub">
-        <span class="metric-title">TEMPO MÉDIO HUB</span>
-        <span class="metric-value" id="kpi-hub-medio">0 min</span>
+    <div class="kpi-pro-card hub">
+        <span class="kpi-pro-title">TEMPO MÉDIO HUB</span>
+        <span class="kpi-pro-value" id="kpi-hub-medio">0 min</span>
     </div>
-    <div class="metric-card soc">
-        <span class="metric-title">TEMPO MÉDIO SOC</span>
-        <span class="metric-value" id="kpi-soc-medio">0 min</span>
+    <div class="kpi-pro-card soc">
+        <span class="kpi-pro-title">TEMPO MÉDIO SOC</span>
+        <span class="kpi-pro-value" id="kpi-soc-medio">0 min</span>
     </div>
 </section>
 
 <!-- Grid de Gráficos Analíticos -->
-<section style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
-    
+<section class="charts-pro-grid">
+
     <!-- 1. Veículos por Setor -->
-    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem; text-align: center;">
-        <h3 style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; text-transform: uppercase;">Veículos por Setor (HUB vs SOC)</h3>
-        <div style="position: relative; height: 260px; display: flex; align-items: center; justify-content: center;">
+    <div class="chart-glass-card">
+        <div class="chart-card-head">
+            <h3 class="chart-card-title">Veículos por Setor (HUB vs SOC)</h3>
+        </div>
+        <div class="chart-canvas-wrap">
             <canvas id="chartSetores"></canvas>
         </div>
     </div>
 
     <!-- 2. Status CPT -->
-    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem; text-align: center;">
-        <h3 style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; text-transform: uppercase;">Cumprimento de CPT (No Prazo x Atrasado)</h3>
-        <div style="position: relative; height: 260px; display: flex; align-items: center; justify-content: center;">
+    <div class="chart-glass-card">
+        <div class="chart-card-head">
+            <h3 class="chart-card-title">Cumprimento de CPT (No Prazo x Atrasado)</h3>
+        </div>
+        <div class="chart-canvas-wrap">
             <canvas id="chartCPT"></canvas>
         </div>
     </div>
 
     <!-- 3. Velocidade de Permanência -->
-    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem; text-align: center;">
-        <h3 style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; text-transform: uppercase;">Velocidade de Permanência no Pátio</h3>
-        <div style="position: relative; height: 260px; display: flex; align-items: center; justify-content: center;">
+    <div class="chart-glass-card">
+        <div class="chart-card-head">
+            <h3 class="chart-card-title">Velocidade de Permanência no Pátio</h3>
+        </div>
+        <div class="chart-canvas-wrap">
             <canvas id="chartVelocidade"></canvas>
         </div>
     </div>
 
     <!-- 4. Pico de Ocupação por Hora (Com Filtro de Turnos) -->
-    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem; text-align: center; grid-column: 1 / -1;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 10px;">
-            <h3 style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; margin: 0;">Fluxo e Pico de Chegadas por Horário</h3>
-            
-            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-                <button class="btn-turno active" data-turno="geral" style="padding: 5px 12px; border-radius: 6px; border: 1px solid var(--accent-blue); background: var(--accent-blue); color: #090d16; font-size: 0.75rem; font-weight: 700; cursor: pointer;">Geral</button>
-                <button class="btn-turno" data-turno="t1" style="padding: 5px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-muted); font-size: 0.75rem; font-weight: 700; cursor: pointer;">T1 (05:25 - 14:00)</button>
-                <button class="btn-turno" data-turno="t2" style="padding: 5px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-muted); font-size: 0.75rem; font-weight: 700; cursor: pointer;">T2 (14:00 - 21:00)</button>
-                <button class="btn-turno" data-turno="t3" style="padding: 5px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-muted); font-size: 0.75rem; font-weight: 700; cursor: pointer;">T3 (21:00 - 05:55)</button>
+    <div class="chart-glass-card full-span">
+        <div class="chart-card-head">
+            <h3 class="chart-card-title">Fluxo e Pico de Chegadas por Horário</h3>
+
+            <div class="filter-group">
+                <button type="button" class="btn-turno active" data-turno="geral">Geral</button>
+                <button type="button" class="btn-turno" data-turno="t1">T1 (05:25 - 14:00)</button>
+                <button type="button" class="btn-turno" data-turno="t2">T2 (14:00 - 21:00)</button>
+                <button type="button" class="btn-turno" data-turno="t3">T3 (21:00 - 05:55)</button>
             </div>
         </div>
 
-        <div style="position: relative; height: 280px; display: flex; align-items: center; justify-content: center;">
+        <div class="chart-canvas-wrap tall">
             <canvas id="chartPicoHoras"></canvas>
         </div>
     </div>
 
     <!-- 5. Veículos Atribuídos / Cadastrados (Produtividade) -->
-    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem; text-align: center;">
-        <h3 style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; text-transform: uppercase;">Veículos Atribuídos (Produtividade)</h3>
-        <div style="position: relative; height: 260px; display: flex; align-items: center; justify-content: center;">
+    <div class="chart-glass-card">
+        <div class="chart-card-head">
+            <h3 class="chart-card-title">Veículos Atribuídos (Produtividade)</h3>
+        </div>
+        <div class="chart-canvas-wrap">
             <canvas id="chartAtribuicoes"></canvas>
         </div>
     </div>
 
     <!-- 6. Liberações por Operador -->
-    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem; text-align: center;">
-        <h3 style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; text-transform: uppercase;">Liberações por Operador</h3>
-        <div style="position: relative; height: 260px; display: flex; align-items: center; justify-content: center;">
+    <div class="chart-glass-card">
+        <div class="chart-card-head">
+            <h3 class="chart-card-title">Liberações por Operador</h3>
+        </div>
+        <div class="chart-canvas-wrap">
             <canvas id="chartOperadores"></canvas>
         </div>
     </div>
 
     <!-- 7. Principais Regiões de Destino -->
-    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem; text-align: center; grid-column: 1 / -1;">
-        <h3 style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; text-transform: uppercase;">Top Regiões de Destino</h3>
-        <div style="position: relative; height: 260px; display: flex; align-items: center; justify-content: center;">
+    <div class="chart-glass-card full-span">
+        <div class="chart-card-head">
+            <h3 class="chart-card-title">Top Regiões de Destino</h3>
+        </div>
+        <div class="chart-canvas-wrap tall">
             <canvas id="chartRegioes"></canvas>
         </div>
     </div>
@@ -113,14 +311,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnPeriodos = document.querySelectorAll('.btn-periodo');
     btnPeriodos.forEach(btn => {
         btn.addEventListener('click', () => {
-            btnPeriodos.forEach(b => {
-                b.style.background = 'var(--bg-card)';
-                b.style.color = 'var(--text-muted)';
-                b.style.borderColor = 'var(--border-color)';
-            });
-            btn.style.background = 'var(--accent-blue)';
-            btn.style.color = '#090d16';
-            btn.style.borderColor = 'var(--accent-blue)';
+            btnPeriodos.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
 
             periodoAtual = btn.getAttribute('data-periodo');
             carregarGraficos();
@@ -130,19 +322,127 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnTurnos = document.querySelectorAll('.btn-turno');
     btnTurnos.forEach(btn => {
         btn.addEventListener('click', () => {
-            btnTurnos.forEach(b => {
-                b.style.background = 'var(--bg-card)';
-                b.style.color = 'var(--text-muted)';
-                b.style.borderColor = 'var(--border-color)';
-            });
-            btn.style.background = 'var(--accent-blue)';
-            btn.style.color = '#090d16';
-            btn.style.borderColor = 'var(--accent-blue)';
+            btnTurnos.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
 
             turnoAtual = btn.getAttribute('data-turno');
             carregarGraficos();
         });
     });
+
+    function criarGradienteVertical(ctx, corTopo, corBase) {
+        const grad = ctx.createLinearGradient(0, 0, 0, 290);
+        grad.addColorStop(0, corTopo);
+        grad.addColorStop(1, corBase);
+        return grad;
+    }
+
+    const pluginCentroRosca = {
+        id: 'centroRosca',
+        afterDraw(chart) {
+            if (chart.config.type !== 'doughnut') return;
+            const opts = chart.config.options.plugins.centroRosca;
+            if (!opts) return;
+
+            const { ctx, chartArea } = chart;
+            if (!chartArea) return;
+
+            const centerX = (chartArea.left + chartArea.right) / 2;
+            const centerY = (chartArea.top + chartArea.bottom) / 2;
+
+            ctx.save();
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            ctx.font = '800 22px Inter, sans-serif';
+            ctx.fillStyle = opts.corValor || '#f8fafc';
+            ctx.fillText(String(opts.valor), centerX, centerY - 6);
+
+            ctx.font = '700 10px Inter, sans-serif';
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillText(String(opts.rotulo || ''), centerX, centerY + 14);
+            ctx.restore();
+        }
+    };
+
+    const tooltipEstilizado = {
+        backgroundColor: 'rgba(9, 13, 22, 0.95)',
+        titleColor: '#f8fafc',
+        bodyColor: '#cbd5e1',
+        borderColor: 'rgba(56, 189, 248, 0.4)',
+        borderWidth: 1,
+        padding: 10,
+        cornerRadius: 10,
+        displayColors: true,
+        titleFont: { family: 'Inter', size: 12, weight: '700' },
+        bodyFont: { family: 'Inter', size: 12, weight: '600' }
+    };
+
+    function montarConfigDoughnut(valorCentral, rotuloCentral, corValor) {
+        return {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '72%',
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        color: '#cbd5e1',
+                        usePointStyle: true,
+                        pointStyle: 'circle',
+                        padding: 16,
+                        font: { family: 'Inter', size: 11, weight: '600' }
+                    }
+                },
+                tooltip: tooltipEstilizado,
+                centroRosca: {
+                    valor: valorCentral,
+                    rotulo: rotuloCentral,
+                    corValor: corValor
+                }
+            }
+        };
+    }
+
+    function montarConfigBar(corHover = '#38bdf8') {
+        return {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: tooltipEstilizado
+            },
+            scales: {
+                x: {
+                    ticks: {
+                        color: '#94a3b8',
+                        font: { family: 'Inter', size: 10.5, weight: '600' },
+                        maxRotation: 0,
+                        autoSkip: true
+                    },
+                    grid: { display: false },
+                    border: { color: 'rgba(148, 163, 184, 0.14)' }
+                },
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        color: '#94a3b8',
+                        font: { family: 'Inter', size: 10.5, weight: '600' }
+                    },
+                    grid: {
+                        color: 'rgba(148, 163, 184, 0.08)',
+                        drawTicks: false
+                    },
+                    border: { display: false }
+                }
+            },
+            elements: {
+                bar: {
+                    hoverBackgroundColor: corHover
+                }
+            }
+        };
+    }
 
     async function carregarGraficos() {
         try {
@@ -155,22 +455,6 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('kpi-hub-medio').innerText = `${dados.tempo_setor.HUB} min`;
             document.getElementById('kpi-soc-medio').innerText = `${dados.tempo_setor.SOC} min`;
 
-            const configDoughnut = {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { family: 'Inter', size: 11 } } } }
-            };
-
-            const configBar = {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } },
-                    y: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } }
-                }
-            };
-
             if (chartSetores) chartSetores.destroy();
             if (chartCPT) chartCPT.destroy();
             if (chartVelocidade) chartVelocidade.destroy();
@@ -179,67 +463,132 @@ document.addEventListener('DOMContentLoaded', () => {
             if (chartOperadores) chartOperadores.destroy();
             if (chartRegioes) chartRegioes.destroy();
 
-            chartSetores = new Chart(document.getElementById('chartSetores'), {
+            const totalSetores = (dados.setores.HUB || 0) + (dados.setores.SOC || 0);
+            const totalCPT = (dados.cpt.no_prazo || 0) + (dados.cpt.fora_prazo || 0);
+            const percPrazo = totalCPT > 0 ? `${Math.round(((dados.cpt.no_prazo || 0) / totalCPT) * 100)}%` : '0%';
+            const totalVel = (dados.velocidade.ate_1h || 0) + (dados.velocidade.de_1h_2h || 0) + (dados.velocidade.acima_2h || 0);
+
+            const ctxSetores = document.getElementById('chartSetores').getContext('2d');
+            chartSetores = new Chart(ctxSetores, {
                 type: 'doughnut',
                 data: {
                     labels: ['HUB', 'SOC'],
-                    datasets: [{ data: [dados.setores.HUB, dados.setores.SOC], backgroundColor: ['#8b5cf6', '#f59e0b'], borderWidth: 0 }]
+                    datasets: [{
+                        data: [dados.setores.HUB, dados.setores.SOC],
+                        backgroundColor: ['#8b5cf6', '#f59e0b'],
+                        hoverBackgroundColor: ['#a78bfa', '#fbbf24'],
+                        borderColor: '#0d1522',
+                        borderWidth: 3
+                    }]
                 },
-                options: configDoughnut
+                options: montarConfigDoughnut(totalSetores, 'TOTAL', '#c4b5fd'),
+                plugins: [pluginCentroRosca]
             });
 
-            chartCPT = new Chart(document.getElementById('chartCPT'), {
+            const ctxCPT = document.getElementById('chartCPT').getContext('2d');
+            chartCPT = new Chart(ctxCPT, {
                 type: 'doughnut',
                 data: {
                     labels: ['No Prazo', 'Fora de Horário'],
-                    datasets: [{ data: [dados.cpt.no_prazo, dados.cpt.fora_prazo], backgroundColor: ['#10b981', '#f43f5e'], borderWidth: 0 }]
+                    datasets: [{
+                        data: [dados.cpt.no_prazo, dados.cpt.fora_prazo],
+                        backgroundColor: ['#10b981', '#f43f5e'],
+                        hoverBackgroundColor: ['#34d399', '#fb7185'],
+                        borderColor: '#0d1522',
+                        borderWidth: 3
+                    }]
                 },
-                options: configDoughnut
+                options: montarConfigDoughnut(percPrazo, 'NO PRAZO', '#34d399'),
+                plugins: [pluginCentroRosca]
             });
 
-            chartVelocidade = new Chart(document.getElementById('chartVelocidade'), {
+            const ctxVel = document.getElementById('chartVelocidade').getContext('2d');
+            chartVelocidade = new Chart(ctxVel, {
                 type: 'doughnut',
                 data: {
                     labels: ['Rápido (<=1h)', 'Médio (1-2h)', 'Lento (>2h)'],
-                    datasets: [{ data: [dados.velocidade.ate_1h, dados.velocidade.de_1h_2h, dados.velocidade.acima_2h], backgroundColor: ['#10b981', '#0ea5e9', '#f43f5e'], borderWidth: 0 }]
+                    datasets: [{
+                        data: [dados.velocidade.ate_1h, dados.velocidade.de_1h_2h, dados.velocidade.acima_2h],
+                        backgroundColor: ['#10b981', '#0ea5e9', '#f43f5e'],
+                        hoverBackgroundColor: ['#34d399', '#38bdf8', '#fb7185'],
+                        borderColor: '#0d1522',
+                        borderWidth: 3
+                    }]
                 },
-                options: configDoughnut
+                options: montarConfigDoughnut(totalVel, 'VEÍCULOS', '#38bdf8'),
+                plugins: [pluginCentroRosca]
             });
 
-            chartPicoHoras = new Chart(document.getElementById('chartPicoHoras'), {
+            const ctxPico = document.getElementById('chartPicoHoras').getContext('2d');
+            chartPicoHoras = new Chart(ctxPico, {
                 type: 'bar',
                 data: {
                     labels: dados.pico_horas.labels,
-                    datasets: [{ data: dados.pico_horas.data, backgroundColor: '#0ea5e9', borderRadius: 6 }]
+                    datasets: [{
+                        label: 'Chegadas',
+                        data: dados.pico_horas.data,
+                        backgroundColor: criarGradienteVertical(ctxPico, '#38bdf8', 'rgba(14, 165, 233, 0.14)'),
+                        borderColor: '#38bdf8',
+                        borderWidth: 1.5,
+                        borderRadius: { topLeft: 8, topRight: 8 },
+                        borderSkipped: false
+                    }]
                 },
-                options: configBar
+                options: montarConfigBar('#7dd3fc')
             });
 
-            chartAtribuicoes = new Chart(document.getElementById('chartAtribuicoes'), {
+            const ctxAtrib = document.getElementById('chartAtribuicoes').getContext('2d');
+            chartAtribuicoes = new Chart(ctxAtrib, {
                 type: 'bar',
                 data: {
                     labels: dados.atribuicoes.labels,
-                    datasets: [{ data: dados.atribuicoes.data, backgroundColor: '#f59e0b', borderRadius: 6 }]
+                    datasets: [{
+                        label: 'Atribuídos',
+                        data: dados.atribuicoes.data,
+                        backgroundColor: criarGradienteVertical(ctxAtrib, '#fbbf24', 'rgba(245, 158, 11, 0.14)'),
+                        borderColor: '#fbbf24',
+                        borderWidth: 1.5,
+                        borderRadius: { topLeft: 8, topRight: 8 },
+                        borderSkipped: false
+                    }]
                 },
-                options: configBar
+                options: montarConfigBar('#fde68a')
             });
 
-            chartOperadores = new Chart(document.getElementById('chartOperadores'), {
+            const ctxOp = document.getElementById('chartOperadores').getContext('2d');
+            chartOperadores = new Chart(ctxOp, {
                 type: 'bar',
                 data: {
                     labels: dados.operadores.labels,
-                    datasets: [{ data: dados.operadores.data, backgroundColor: '#8b5cf6', borderRadius: 6 }]
+                    datasets: [{
+                        label: 'Liberações',
+                        data: dados.operadores.data,
+                        backgroundColor: criarGradienteVertical(ctxOp, '#a78bfa', 'rgba(139, 92, 246, 0.14)'),
+                        borderColor: '#a78bfa',
+                        borderWidth: 1.5,
+                        borderRadius: { topLeft: 8, topRight: 8 },
+                        borderSkipped: false
+                    }]
                 },
-                options: configBar
+                options: montarConfigBar('#c4b5fd')
             });
 
-            chartRegioes = new Chart(document.getElementById('chartRegioes'), {
+            const ctxReg = document.getElementById('chartRegioes').getContext('2d');
+            chartRegioes = new Chart(ctxReg, {
                 type: 'bar',
                 data: {
                     labels: dados.regioes.labels,
-                    datasets: [{ data: dados.regioes.data, backgroundColor: '#10b981', borderRadius: 6 }]
+                    datasets: [{
+                        label: 'Operações',
+                        data: dados.regioes.data,
+                        backgroundColor: criarGradienteVertical(ctxReg, '#34d399', 'rgba(16, 185, 129, 0.14)'),
+                        borderColor: '#34d399',
+                        borderWidth: 1.5,
+                        borderRadius: { topLeft: 8, topRight: 8 },
+                        borderSkipped: false
+                    }]
                 },
-                options: configBar
+                options: montarConfigBar('#6ee7b7')
             });
 
         } catch (err) {
