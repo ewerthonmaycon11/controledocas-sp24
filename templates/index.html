@@ -36,6 +36,22 @@
     </div>
 </section>
 
+<!-- Modal Rápido para Colar Texto Copiado -->
+<div id="paste-modal-overlay" class="paste-modal-overlay" style="display: none;">
+    <div class="paste-modal-card">
+        <div class="paste-modal-header">
+            <h4>📋 Colar Dados da Doca <span id="paste-modal-doca-num"></span></h4>
+            <button type="button" id="close-paste-modal" class="paste-modal-close">&times;</button>
+        </div>
+        <p class="paste-modal-hint">Cole abaixo o texto copiado (com NOME, REGIÃO, PLACA, CHEGADA, ETA, CPT):</p>
+        <textarea id="paste-modal-textarea" class="paste-modal-textarea" rows="8" placeholder="Cole o texto aqui..."></textarea>
+        <div class="paste-modal-actions">
+            <button type="button" id="apply-paste-modal" class="btn-action action-btn-release" style="flex: 1;">Preencher Campos</button>
+            <button type="button" id="cancel-paste-modal" class="btn-action" style="background: var(--red-neon); color: #fff; width: 90px;">Fechar</button>
+        </div>
+    </div>
+</div>
+
 <!-- SETOR 01: HUB LOGÍSTICO (1 A 16) -->
 <div class="sector-divider">
     <h2>SETOR 01: HUB LOGÍSTICO (DOCAS 01 A 16)</h2>
@@ -59,7 +75,14 @@
                 {{ doca.status }}
             </div>
 
-            <div class="plate-display" id="plate-display-{{ doca.numero }}">
+            <div class="plate-display" id="plate-display-{{ doca.numero }}"
+                 data-placa="{{ doca.placa or '' }}"
+                 data-regiao="{{ doca.regiao or '' }}"
+                 data-cpt="{{ doca.cpt or '' }}"
+                 data-cptdatetime="{{ doca.cpt_datetime or '' }}"
+                 data-nome="{{ doca.nome or '' }}"
+                 data-chegada="{{ doca.chegada or '' }}"
+                 data-eta="{{ doca.eta or '' }}">
                 {% if doca.status == 'OCUPADA' %}
                     <span class="plate-label">PLACA:</span>
                     <span class="plate-value">{{ doca.placa if doca.placa else 'NÃO INFORMADA' }}</span>
@@ -86,6 +109,11 @@
                 {% if current_user.is_authenticated %}
                     {% if doca.status == 'LIVRE' %}
                         <div class="plate-input-group form-atribuicao" id="form-{{ doca.numero }}" style="display: none; margin-top: 8px;">
+                            <div style="display: flex; justify-content: flex-start; margin-bottom: 4px;">
+                                <button type="button" class="btn-paste-data" data-numero="{{ doca.numero }}" data-modo="input" title="Colar texto copiado">
+                                    📋 Colar Texto
+                                </button>
+                            </div>
                             <input type="text" id="input-nome-{{ doca.numero }}" class="input-plate" placeholder="NOME" maxlength="100">
                             <input type="text" id="input-regiao-{{ doca.numero }}" class="input-plate" placeholder="REGIÃO" maxlength="100" style="margin-top: 6px;">
                             <input type="text" id="input-placa-{{ doca.numero }}" class="input-plate" placeholder="PLACA (ABC-1D23)" maxlength="10" style="margin-top: 6px;">
@@ -105,21 +133,33 @@
                     {% else %}
                         <div class="dock-ocupada-actions">
                             <button type="button" class="btn-action action-btn-release" data-numero="{{ doca.numero }}">Liberar Doca</button>
-                            <button
-                                type="button"
-                                class="btn-share-whatsapp"
-                                title="Compartilhar no WhatsApp"
-                                aria-label="Compartilhar Doca {{ doca.numero }} no WhatsApp"
-                                data-doca="{{ doca.numero }}"
-                                data-nome="{{ doca.nome or 'NÃO INFORMADO' }}"
-                                data-regiao="{{ doca.regiao or 'NÃO INFORMADA' }}"
-                                data-placa="{{ doca.placa or 'NÃO INFORMADA' }}"
-                                data-chegada="{{ doca.chegada or 'NÃO INFORMADA' }}"
-                                data-eta="{{ doca.eta or 'NÃO INFORMADO' }}"
-                                data-cpt="{{ doca.cpt or 'NÃO INFORMADO' }}"
-                            >
-                                📤 WhatsApp
-                            </button>
+                            <div class="dock-bottom-mini-actions">
+                                <button
+                                    type="button"
+                                    class="btn-share-whatsapp"
+                                    title="Compartilhar no WhatsApp"
+                                    aria-label="Compartilhar Doca {{ doca.numero }} no WhatsApp"
+                                    data-doca="{{ doca.numero }}"
+                                    data-nome="{{ doca.nome or 'NÃO INFORMADO' }}"
+                                    data-regiao="{{ doca.regiao or 'NÃO INFORMADA' }}"
+                                    data-placa="{{ doca.placa or 'NÃO INFORMADA' }}"
+                                    data-chegada="{{ doca.chegada or 'NÃO INFORMADA' }}"
+                                    data-eta="{{ doca.eta or 'NÃO INFORMADO' }}"
+                                    data-cpt="{{ doca.cpt or 'NÃO INFORMADO' }}"
+                                >
+                                    📤 WhatsApp
+                                </button>
+                                <button
+                                    type="button"
+                                    class="btn-paste-data"
+                                    title="Colar texto copiado para preencher campos"
+                                    aria-label="Colar dados na Doca {{ doca.numero }}"
+                                    data-numero="{{ doca.numero }}"
+                                    data-modo="edit"
+                                >
+                                    📋 Colar
+                                </button>
+                            </div>
                         </div>
                     {% endif %}
                 {% endif %}
@@ -156,7 +196,14 @@
                 {{ doca.status }}
             </div>
 
-            <div class="plate-display" id="plate-display-{{ doca.numero }}">
+            <div class="plate-display" id="plate-display-{{ doca.numero }}"
+                 data-placa="{{ doca.placa or '' }}"
+                 data-regiao="{{ doca.regiao or '' }}"
+                 data-cpt="{{ doca.cpt or '' }}"
+                 data-cptdatetime="{{ doca.cpt_datetime or '' }}"
+                 data-nome="{{ doca.nome or '' }}"
+                 data-chegada="{{ doca.chegada or '' }}"
+                 data-eta="{{ doca.eta or '' }}">
                 {% if doca.status == 'OCUPADA' %}
                     <span class="plate-label">PLACA:</span>
                     <span class="plate-value">{{ doca.placa if doca.placa else 'NÃO INFORMADA' }}</span>
@@ -183,6 +230,11 @@
                 {% if current_user.is_authenticated %}
                     {% if doca.status == 'LIVRE' %}
                         <div class="plate-input-group form-atribuicao" id="form-{{ doca.numero }}" style="display: none; margin-top: 8px;">
+                            <div style="display: flex; justify-content: flex-start; margin-bottom: 4px;">
+                                <button type="button" class="btn-paste-data" data-numero="{{ doca.numero }}" data-modo="input" title="Colar texto copiado">
+                                    📋 Colar Texto
+                                </button>
+                            </div>
                             <input type="text" id="input-nome-{{ doca.numero }}" class="input-plate" placeholder="NOME" maxlength="100">
                             <input type="text" id="input-regiao-{{ doca.numero }}" class="input-plate" placeholder="REGIÃO" maxlength="100" style="margin-top: 6px;">
                             <input type="text" id="input-placa-{{ doca.numero }}" class="input-plate" placeholder="PLACA (ABC-1D23)" maxlength="10" style="margin-top: 6px;">
@@ -202,21 +254,33 @@
                     {% else %}
                         <div class="dock-ocupada-actions">
                             <button type="button" class="btn-action action-btn-release" data-numero="{{ doca.numero }}">Liberar Doca</button>
-                            <button
-                                type="button"
-                                class="btn-share-whatsapp"
-                                title="Compartilhar no WhatsApp"
-                                aria-label="Compartilhar Doca {{ doca.numero }} no WhatsApp"
-                                data-doca="{{ doca.numero }}"
-                                data-nome="{{ doca.nome or 'NÃO INFORMADO' }}"
-                                data-regiao="{{ doca.regiao or 'NÃO INFORMADA' }}"
-                                data-placa="{{ doca.placa or 'NÃO INFORMADA' }}"
-                                data-chegada="{{ doca.chegada or 'NÃO INFORMADA' }}"
-                                data-eta="{{ doca.eta or 'NÃO INFORMADO' }}"
-                                data-cpt="{{ doca.cpt or 'NÃO INFORMADO' }}"
-                            >
-                                📤 WhatsApp
-                            </button>
+                            <div class="dock-bottom-mini-actions">
+                                <button
+                                    type="button"
+                                    class="btn-share-whatsapp"
+                                    title="Compartilhar no WhatsApp"
+                                    aria-label="Compartilhar Doca {{ doca.numero }} no WhatsApp"
+                                    data-doca="{{ doca.numero }}"
+                                    data-nome="{{ doca.nome or 'NÃO INFORMADO' }}"
+                                    data-regiao="{{ doca.regiao or 'NÃO INFORMADA' }}"
+                                    data-placa="{{ doca.placa or 'NÃO INFORMADA' }}"
+                                    data-chegada="{{ doca.chegada or 'NÃO INFORMADA' }}"
+                                    data-eta="{{ doca.eta or 'NÃO INFORMADO' }}"
+                                    data-cpt="{{ doca.cpt or 'NÃO INFORMADO' }}"
+                                >
+                                    📤 WhatsApp
+                                </button>
+                                <button
+                                    type="button"
+                                    class="btn-paste-data"
+                                    title="Colar texto copiado para preencher campos"
+                                    aria-label="Colar dados na Doca {{ doca.numero }}"
+                                    data-numero="{{ doca.numero }}"
+                                    data-modo="edit"
+                                >
+                                    📋 Colar
+                                </button>
+                            </div>
                         </div>
                     {% endif %}
                 {% endif %}
