@@ -370,7 +370,6 @@ document.addEventListener('DOMContentLoaded', () => {
         closeSidebarBtn.addEventListener('click', () => sidebar.classList.remove('active'));
     }
 
-    // Eventos do Modal de Colar Texto
     const pasteOverlay = document.getElementById('paste-modal-overlay');
     const pasteTextarea = document.getElementById('paste-modal-textarea');
     const applyPasteBtn = document.getElementById('apply-paste-modal');
@@ -401,7 +400,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Preenche automaticamente assim que o usuário cola (Ctrl+V / Colar) dentro da caixa
     if (pasteTextarea) {
         pasteTextarea.addEventListener('paste', () => {
             setTimeout(() => {
@@ -416,7 +414,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Clique nos cards para alternar visualização ou abrir edição
     document.body.addEventListener('click', (e) => {
         if (e.target.closest('input') || e.target.closest('button') || e.target.closest('form')) {
             return;
@@ -500,7 +497,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Eventos para Botões de Ação, Edição, Salvamento, WhatsApp, Colar e Check List
     document.body.addEventListener('click', async (e) => {
         const checklistBtn = e.target.closest('.btn-checklist-box');
         if (checklistBtn) {
@@ -878,11 +874,22 @@ async function alterarStatusComDados(numeroDoca, novoStatus, dados) {
 }
 
 function atualizarCardNaTela(doca) {
+    const statusLower = String(doca.status || 'LIVRE').toLowerCase();
     const card = document.getElementById(`doca-card-${doca.numero}`);
     if (!card) return;
 
-    card.className = `dock-card ${doca.status.toLowerCase()}`;
+    card.className = `dock-card ${statusLower}`;
     card.setAttribute('data-status', doca.status);
+
+    const lightEl = document.getElementById(`light-${doca.numero}`);
+    if (lightEl) {
+        lightEl.className = `status-light ${statusLower}`;
+    }
+
+    const statusTextEl = document.getElementById(`status-text-${doca.numero}`);
+    if (statusTextEl) {
+        statusTextEl.innerText = doca.status;
+    }
 
     const checklistFeito = Boolean(doca.checklist_feito);
     const plateDisplay = document.getElementById(`plate-display-${doca.numero}`);
@@ -1165,18 +1172,19 @@ function formatarMensagemWhatsApp(dados) {
         'Pátio Outbound Carregamento:',
         '',
         `⚪ NOME: ${dados.nome || 'NÃO INFORMADO'}`,
-        
+
         `⚪ REGIÃO: ${dados.regiao || 'NÃO INFORMADA'}`,
-        
+
         `⚪ PLACA: ${dados.placa || 'NÃO INFORMADA'}`,
-        
+
         `🚚 DOCA: ${dados.doca || ''}`,
-        
+
         `⚪ CHEGADA: ${dados.chegada || 'NÃO INFORMADA'}`,
-        
+
         `⚪ ETA: ${dados.eta || 'NÃO INFORMADO'}`,
-        
+
         `⚪ CPT: ${dados.cpt || 'NÃO INFORMADO'}`
+        
     ];
     return linhas.join('\n');
 }
