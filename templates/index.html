@@ -1,6 +1,60 @@
 {% extends 'base.html' %}
 
 {% block content %}
+<style>
+    .dock-checklist-box {
+        margin-top: 8px;
+        padding: 6px 8px;
+        border-radius: 8px;
+        background: rgba(15, 23, 42, 0.72);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+    }
+
+    .dock-checklist-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #e2e8f0;
+        cursor: pointer;
+        user-select: none;
+        margin: 0;
+    }
+
+    .dock-checklist-checkbox {
+        width: 16px;
+        height: 16px;
+        accent-color: #10b981;
+        cursor: pointer;
+        margin: 0;
+    }
+
+    .dock-checklist-status {
+        font-size: 0.65rem;
+        font-weight: 800;
+        padding: 2px 6px;
+        border-radius: 6px;
+        white-space: nowrap;
+    }
+
+    .dock-checklist-status.feito {
+        color: #34d399;
+        background: rgba(16, 185, 129, 0.15);
+        border: 1px solid rgba(16, 185, 129, 0.35);
+    }
+
+    .dock-checklist-status.pendente {
+        color: #fb7185;
+        background: rgba(244, 63, 94, 0.15);
+        border: 1px solid rgba(244, 63, 94, 0.35);
+    }
+</style>
+
 <!-- Barra de Pesquisa Global no Topo -->
 <section style="margin-bottom: 2rem;">
     <form method="GET" action="{{ url_for('index') }}" style="display: flex; gap: 0.75rem; max-width: 600px; margin: 0 auto;">
@@ -132,6 +186,25 @@
                         </div>
                     {% else %}
                         <div class="dock-ocupada-actions">
+                            <div class="dock-checklist-box" id="checklist-box-{{ doca.numero }}">
+                                <label class="dock-checklist-label" for="chk-doca-{{ doca.numero }}">
+                                    <input
+                                        type="checkbox"
+                                        id="chk-doca-{{ doca.numero }}"
+                                        class="dock-checklist-checkbox js-card-checklist"
+                                        data-doca="{{ doca.numero }}"
+                                        {% if doca.checklist_feito %}checked{% endif %}
+                                    >
+                                    <span>Check List</span>
+                                </label>
+                                <span
+                                    id="chk-badge-{{ doca.numero }}"
+                                    class="dock-checklist-status {{ 'feito' if doca.checklist_feito else 'pendente' }}"
+                                >
+                                    {{ 'FEITO' if doca.checklist_feito else 'PENDENTE' }}
+                                </span>
+                            </div>
+
                             <button type="button" class="btn-action action-btn-release" data-numero="{{ doca.numero }}">Liberar Doca</button>
                             <div class="dock-bottom-mini-actions">
                                 <button
@@ -253,6 +326,25 @@
                         </div>
                     {% else %}
                         <div class="dock-ocupada-actions">
+                            <div class="dock-checklist-box" id="checklist-box-{{ doca.numero }}">
+                                <label class="dock-checklist-label" for="chk-doca-{{ doca.numero }}">
+                                    <input
+                                        type="checkbox"
+                                        id="chk-doca-{{ doca.numero }}"
+                                        class="dock-checklist-checkbox js-card-checklist"
+                                        data-doca="{{ doca.numero }}"
+                                        {% if doca.checklist_feito %}checked{% endif %}
+                                    >
+                                    <span>Check List</span>
+                                </label>
+                                <span
+                                    id="chk-badge-{{ doca.numero }}"
+                                    class="dock-checklist-status {{ 'feito' if doca.checklist_feito else 'pendente' }}"
+                                >
+                                    {{ 'FEITO' if doca.checklist_feito else 'PENDENTE' }}
+                                </span>
+                            </div>
+
                             <button type="button" class="btn-action action-btn-release" data-numero="{{ doca.numero }}">Liberar Doca</button>
                             <div class="dock-bottom-mini-actions">
                                 <button
@@ -293,4 +385,38 @@
     </div>
     {% endfor %}
 </section>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.js-card-checklist').forEach(chk => {
+        chk.addEventListener('change', async (e) => {
+            e.stopPropagation();
+            const docaNum = chk.getAttribute('data-doca');
+            const marcado = chk.checked;
+            const badge = document.getElementById(`chk-badge-${docaNum}`);
+            chk.disabled = true;
+
+            try {
+                const resp = await fetch(`/api/doca/${docaNum}/checklist`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ checklist_feito: marcado })
+                });
+                const data = await resp.json();
+                if (!resp.ok || !data.success) {
+                    chk.checked = !marcado;
+                } else if (badge) {
+                    badge.textContent = marcado ? 'FEITO' : 'PENDENTE';
+                    badge.classList.toggle('feito', marcado);
+                    badge.classList.toggle('pendente', !marcado);
+                }
+            } catch (err) {
+                chk.checked = !marcado;
+            } finally {
+                chk.disabled = false;
+            }
+        });
+    });
+});
+</script>
 {% endblock %}
