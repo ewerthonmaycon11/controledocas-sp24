@@ -219,24 +219,26 @@ async function abrirModalColar(numero, modo) {
     if (docaNumSpan) docaNumSpan.innerText = numero;
     if (textarea) textarea.value = '';
 
-    // Tenta ler automaticamente da área de transferência se o navegador permitir
+    // Abre sempre o modal para garantir resposta visual em todos os cliques
+    if (overlay) {
+        overlay.style.display = 'flex';
+    }
+
+    // Tenta ler automaticamente da área de transferência se o navegador permitir e houver texto
     if (navigator.clipboard && navigator.clipboard.readText) {
         try {
             const textoCopiado = await navigator.clipboard.readText();
-            if (textoCopiado && textoCopiado.trim()) {
+            if (textoCopiado && textoCopiado.trim() && textarea) {
+                textarea.value = textoCopiado;
                 aplicarTextoNosCampos(numero, modo, textoCopiado);
-                return;
             }
         } catch (err) {
-            // Se o navegador bloquear leitura automática, abre o modal para colar manualmente
+            // Mantém o modal aberto para colagem manual
         }
     }
 
-    if (overlay) {
-        overlay.style.display = 'flex';
-        if (textarea) {
-            setTimeout(() => textarea.focus(), 50);
-        }
+    if (textarea) {
+        setTimeout(() => textarea.focus(), 50);
     }
 }
 
