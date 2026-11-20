@@ -184,7 +184,14 @@
     }
 
     .chart-canvas-wrap.tall {
-        height: 295px;
+        height: 300px;
+        overflow-x: auto;
+    }
+
+    .chart-scroll-inner {
+        position: relative;
+        height: 100%;
+        min-width: 100%;
     }
 </style>
 
@@ -266,7 +273,9 @@
         </div>
 
         <div class="chart-canvas-wrap tall">
-            <canvas id="chartPicoHoras"></canvas>
+            <div class="chart-scroll-inner">
+                <canvas id="chartPicoHoras"></canvas>
+            </div>
         </div>
     </div>
 
@@ -293,10 +302,12 @@
     <!-- 7. Principais Regiões de Destino -->
     <div class="chart-glass-card full-span">
         <div class="chart-card-head">
-            <h3 class="chart-card-title">Top Regiões de Destino</h3>
+            <h3 class="chart-card-title">Regiões de Destino</h3>
         </div>
         <div class="chart-canvas-wrap tall">
-            <canvas id="chartRegioes"></canvas>
+            <div class="chart-scroll-inner" id="regioesScrollWrap">
+                <canvas id="chartRegioes"></canvas>
+            </div>
         </div>
     </div>
 
@@ -404,7 +415,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    function montarConfigBar(corHover = '#38bdf8') {
+    function montarConfigBar(corHover = '#38bdf8', autoSkipX = true) {
         return {
             responsive: true,
             maintainAspectRatio: false,
@@ -417,8 +428,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     ticks: {
                         color: '#94a3b8',
                         font: { family: 'Inter', size: 10.5, weight: '600' },
-                        maxRotation: 0,
-                        autoSkip: true
+                        maxRotation: autoSkipX ? 0 : 25,
+                        autoSkip: autoSkipX
                     },
                     grid: { display: false },
                     border: { color: 'rgba(148, 163, 184, 0.14)' }
@@ -534,7 +545,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         borderSkipped: false
                     }]
                 },
-                options: montarConfigBar('#7dd3fc')
+                options: montarConfigBar('#7dd3fc', true)
             });
 
             const ctxAtrib = document.getElementById('chartAtribuicoes').getContext('2d');
@@ -552,7 +563,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         borderSkipped: false
                     }]
                 },
-                options: montarConfigBar('#fde68a')
+                options: montarConfigBar('#fde68a', true)
             });
 
             const ctxOp = document.getElementById('chartOperadores').getContext('2d');
@@ -570,14 +581,21 @@ document.addEventListener('DOMContentLoaded', () => {
                         borderSkipped: false
                     }]
                 },
-                options: montarConfigBar('#c4b5fd')
+                options: montarConfigBar('#c4b5fd', true)
             });
+
+            const labelsRegioes = dados.regioes.labels || [];
+            const scrollWrapRegioes = document.getElementById('regioesScrollWrap');
+            if (scrollWrapRegioes) {
+                const larguraMinima = Math.max(labelsRegioes.length * 110, 600);
+                scrollWrapRegioes.style.width = labelsRegioes.length > 8 ? `${larguraMinima}px` : '100%';
+            }
 
             const ctxReg = document.getElementById('chartRegioes').getContext('2d');
             chartRegioes = new Chart(ctxReg, {
                 type: 'bar',
                 data: {
-                    labels: dados.regioes.labels,
+                    labels: labelsRegioes,
                     datasets: [{
                         label: 'Operações',
                         data: dados.regioes.data,
@@ -588,7 +606,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         borderSkipped: false
                     }]
                 },
-                options: montarConfigBar('#6ee7b7')
+                options: montarConfigBar('#6ee7b7', false)
             });
 
         } catch (err) {
