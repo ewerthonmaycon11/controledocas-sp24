@@ -193,6 +193,25 @@
         height: 100%;
         min-width: 100%;
     }
+
+    .checklist-vehicles-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+        max-height: 140px;
+        overflow-y: auto;
+    }
+
+    .checklist-vehicle-tag {
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #34d399;
+        background: rgba(16, 185, 129, 0.12);
+        border: 1px solid rgba(16, 185, 129, 0.35);
+        padding: 4px 10px;
+        border-radius: 8px;
+    }
 </style>
 
 <div class="analytics-header">
@@ -228,6 +247,36 @@
 
 <!-- Grid de Gráficos Analíticos -->
 <section class="charts-pro-grid">
+
+    <!-- Check List: Feitos x Pendentes -->
+    <div class="chart-glass-card">
+        <div class="chart-card-head">
+            <h3 class="chart-card-title">Check List (Feitos x Pendentes)</h3>
+        </div>
+        <div class="chart-canvas-wrap">
+            <canvas id="chartChecklistStatus"></canvas>
+        </div>
+    </div>
+
+    <!-- Check List por Usuário -->
+    <div class="chart-glass-card">
+        <div class="chart-card-head">
+            <h3 class="chart-card-title">Check Lists Realizados por Usuário</h3>
+        </div>
+        <div class="chart-canvas-wrap">
+            <canvas id="chartChecklistUsuarios"></canvas>
+        </div>
+    </div>
+
+    <!-- Veículos com Check List Realizado -->
+    <div class="chart-glass-card">
+        <div class="chart-card-head">
+            <h3 class="chart-card-title">Veículos com Check List Feito</h3>
+        </div>
+        <div id="listaVeiculosChecklist" class="checklist-vehicles-list">
+            <span style="font-size: 0.78rem; color: #94a3b8;">Carregando veículos...</span>
+        </div>
+    </div>
 
     <!-- 1. Veículos por Setor -->
     <div class="chart-glass-card">
@@ -315,7 +364,7 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    let chartSetores, chartCPT, chartVelocidade, chartPicoHoras, chartAtribuicoes, chartOperadores, chartRegioes;
+    let chartChecklistStatus, chartChecklistUsuarios, chartSetores, chartCPT, chartVelocidade, chartPicoHoras, chartAtribuicoes, chartOperadores, chartRegioes;
     let periodoAtual = 'dia';
     let turnoAtual = 'geral';
 
@@ -466,6 +515,8 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('kpi-hub-medio').innerText = `${dados.tempo_setor.HUB} min`;
             document.getElementById('kpi-soc-medio').innerText = `${dados.tempo_setor.SOC} min`;
 
+            if (chartChecklistStatus) chartChecklistStatus.destroy();
+            if (chartChecklistUsuarios) chartChecklistUsuarios.destroy();
             if (chartSetores) chartSetores.destroy();
             if (chartCPT) chartCPT.destroy();
             if (chartVelocidade) chartVelocidade.destroy();
@@ -473,6 +524,56 @@ document.addEventListener('DOMContentLoaded', () => {
             if (chartAtribuicoes) chartAtribuicoes.destroy();
             if (chartOperadores) chartOperadores.destroy();
             if (chartRegioes) chartRegioes.destroy();
+
+            const chkDados = dados.checklist || { feitos: 0, pendentes: 0, usuarios_labels: [], usuarios_data: [], veiculos_feitos: [] };
+            const totalChk = (chkDados.feitos || 0) + (chkDados.pendentes || 0);
+
+            const ctxChkStatus = document.getElementById('chartChecklistStatus').getContext('2d');
+            chartChecklistStatus = new Chart(ctxChkStatus, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Feitos', 'Pendentes'],
+                    datasets: [{
+                        data: [chkDados.feitos || 0, chkDados.pendentes || 0],
+                        backgroundColor: ['#10b981', '#f43f5e'],
+                        hoverBackgroundColor: ['#34d399', '#fb7185'],
+                        borderColor: '#0d1522',
+                        borderWidth: 3
+                    }]
+                },
+                options: montarConfigDoughnut(chkDados.feitos || 0, `DE ${totalChk} FEITOS`, '#34d399'),
+                plugins: [pluginCentroRosca]
+            });
+
+            const ctxChkUsers = document.getElementById('chartChecklistUsuarios').getContext('2d');
+            chartChecklistUsuarios = new Chart(ctxChkUsers, {
+                type: 'bar',
+                data: {
+                    labels: chkDados.usuarios_labels || [],
+                    datasets: [{
+                        label: 'Check Lists Feitos',
+                        data: chkDados.usuarios_data || [],
+                        backgroundColor: criarGradienteVertical(ctxChkUsers, '#34d399', 'rgba(16, 185, 129, 0.14)'),
+                        borderColor: '#34d399',
+                        borderWidth: 1.5,
+                        borderRadius: { topLeft: 8, topRight: 8 },
+                        borderSkipped: false
+                    }]
+                },
+                options: montarConfigBar('#6ee7b7', true)
+            });
+
+            const listaVeiculosEl = document.getElementById('listaVeiculosChecklist');
+            if (listaVeiculosEl) {
+                const veiculos = chkDados.veiculos_feitos || [];
+                if (veiculos.length === 0) {
+                    listaVeiculosEl.innerHTML = '<span style="font-size: 0.78rem; color: #94a3b8;">Nenhum veículo com check list feito no período.</span>';
+                } else {
+                    listaVeiculosEl.innerHTML = veiculos
+                        .map(v => `<span class="checklist-vehicle-tag">✅ ${v}</span>`)
+                        .join('');
+                }
+            }
 
             const totalSetores = (dados.setores.HUB || 0) + (dados.setores.SOC || 0);
             const totalCPT = (dados.cpt.no_prazo || 0) + (dados.cpt.fora_prazo || 0);

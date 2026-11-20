@@ -1,0 +1,236 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    .checklist-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .checklist-header h2 {
+        font-size: 1rem;
+        letter-spacing: 1.5px;
+        color: #38bdf8;
+        font-weight: 800;
+        margin: 0;
+    }
+
+    .checklist-filter-bar {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 1.25rem;
+    }
+
+    .checklist-filter-btn {
+        padding: 7px 14px;
+        border-radius: 9px;
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        background: rgba(19, 28, 46, 0.75);
+        color: #94a3b8;
+        font-size: 0.78rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .checklist-filter-btn.active,
+    .checklist-filter-btn:hover {
+        color: #fff;
+        border-color: rgba(56, 189, 248, 0.55);
+        background: linear-gradient(135deg, rgba(14, 165, 233, 0.28), rgba(37, 99, 235, 0.28));
+    }
+
+    .checklist-table-card {
+        background: linear-gradient(160deg, rgba(20, 31, 51, 0.88) 0%, rgba(10, 16, 28, 0.94) 100%);
+        backdrop-filter: blur(14px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 16px;
+        padding: 1.25rem;
+        overflow-x: auto;
+        box-shadow: 0 16px 36px -14px rgba(0, 0, 0, 0.75);
+    }
+
+    .checklist-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.82rem;
+        color: #e2e8f0;
+    }
+
+    .checklist-table th {
+        text-align: left;
+        padding: 10px 12px;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        color: #94a3b8;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+        white-space: nowrap;
+    }
+
+    .checklist-table td {
+        padding: 11px 12px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        vertical-align: middle;
+    }
+
+    .checklist-table tr:hover td {
+        background: rgba(56, 189, 248, 0.05);
+    }
+
+    .badge-ok {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 800;
+        background: rgba(16, 185, 129, 0.16);
+        color: #34d399;
+        border: 1px solid rgba(16, 185, 129, 0.4);
+        white-space: nowrap;
+    }
+
+    .badge-pendente {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 800;
+        background: rgba(244, 63, 94, 0.16);
+        color: #fb7185;
+        border: 1px solid rgba(244, 63, 94, 0.4);
+        white-space: nowrap;
+    }
+
+    .user-detail-box {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .user-detail-name {
+        font-weight: 700;
+        color: #f8fafc;
+    }
+
+    .user-detail-meta {
+        font-size: 0.72rem;
+        color: #94a3b8;
+    }
+</style>
+
+<div class="checklist-header">
+    <h2>CONTROLE E DETALHAMENTO DE CHECK LIST</h2>
+</div>
+
+<div class="checklist-filter-bar">
+    <button type="button" class="checklist-filter-btn active" data-filtro="todos">Todos</button>
+    <button type="button" class="checklist-filter-btn" data-filtro="feito">Check List Feito</button>
+    <button type="button" class="checklist-filter-btn" data-filtro="pendente">Pendente / Sem Check List</button>
+</div>
+
+<div class="checklist-table-card">
+    <table class="checklist-table" id="tabelaChecklist">
+        <thead>
+            <tr>
+                <th>Status</th>
+                <th>Origem / Doca</th>
+                <th>Veículo Cadastrado (Placa / Nome)</th>
+                <th>Região</th>
+                <th>Chegada / ETA / CPT</th>
+                <th>Usuário Responsável</th>
+                <th>Data / Hora Check List</th>
+                <th>Observação</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in itens %}
+            <tr data-status-checklist="{{ 'feito' if item.checklist_feito else 'pendente' }}">
+                <td>
+                    {% if item.checklist_feito %}
+                        <span class="badge-ok">✅ FEITO</span>
+                    {% else %}
+                        <span class="badge-pendente">❌ NÃO FEITO</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="user-detail-box">
+                        <span class="user-detail-name">DOCA {{ item.doca_numero }} ({{ item.tipo }})</span>
+                        <span class="user-detail-meta">{{ item.origem }}</span>
+                    </div>
+                </td>
+                <td>
+                    <div class="user-detail-box">
+                        <span class="user-detail-name">{{ item.placa or 'NÃO INFORMADA' }}</span>
+                        <span class="user-detail-meta">Motorista/Nome: {{ item.nome or 'NÃO INFORMADO' }}</span>
+                    </div>
+                </td>
+                <td>{{ item.regiao or 'NÃO INFORMADA' }}</td>
+                <td>
+                    <div class="user-detail-box">
+                        <span class="user-detail-meta">Chegada: {{ item.chegada or '-' }} | ETA: {{ item.eta or '-' }}</span>
+                        <span class="user-detail-meta">CPT: {{ item.cpt or '-' }}</span>
+                    </div>
+                </td>
+                <td>
+                    {% if item.checklist_feito %}
+                        <div class="user-detail-box">
+                            <span class="user-detail-name">Check list: {{ item.checklist_usuario or 'NÃO IDENTIFICADO' }}</span>
+                            <span class="user-detail-meta">Atribuído por: {{ item.usuario_atribuicao or '-' }}</span>
+                        </div>
+                    {% else %}
+                        <div class="user-detail-box">
+                            <span class="user-detail-meta">Aguardando check list</span>
+                            <span class="user-detail-meta">Atribuído por: {{ item.usuario_atribuicao or '-' }}</span>
+                        </div>
+                    {% endif %}
+                </td>
+                <td>{{ item.checklist_data_hora or '-' }}</td>
+                <td>{{ item.checklist_obs or '-' }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="8" style="text-align: center; color: #94a3b8; padding: 24px;">
+                    Nenhum registro encontrado para exibir.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const botoesFiltro = document.querySelectorAll('.checklist-filter-btn');
+    const linhas = document.querySelectorAll('#tabelaChecklist tbody tr[data-status-checklist]');
+
+    botoesFiltro.forEach(btn => {
+        btn.addEventListener('click', () => {
+            botoesFiltro.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            const filtro = btn.getAttribute('data-filtro');
+            linhas.forEach(tr => {
+                const status = tr.getAttribute('data-status-checklist');
+                if (filtro === 'todos' || filtro === status) {
+                    tr.style.display = '';
+                } else {
+                    tr.style.display = 'none';
+                }
+            });
+        });
+    });
+});
+</script>
+{% endblock %}
