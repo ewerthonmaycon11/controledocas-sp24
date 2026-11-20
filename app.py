@@ -1,1183 +1,931 @@
-let pasteTargetDoca = null;
-let pasteTargetModo = 'input';
-let checklistTargetDoca = null;
-let audioCtxCpt = null;
-const alertasCptDisparados = new Set();
-const alertasChecklist30MinDisparados = new Set();
-
-function desbloquearAudioAlerta() {
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContextClass) return;
-    if (!audioCtxCpt) {
-        audioCtxCpt = new AudioContextClass();
-    }
-    if (audioCtxCpt.state === 'suspended') {
-        audioCtxCpt.resume().catch(() => {});
-    }
-}
-
-document.addEventListener('click', desbloquearAudioAlerta, { passive: true });
-document.addEventListener('keydown', desbloquearAudioAlerta, { passive: true });
-
-function tocarSomAlertaAlto() {
-    desbloquearAudioAlerta();
-    if (!audioCtxCpt) return;
-
-    const agora = audioCtxCpt.currentTime;
-    const pulsos = [0, 0.28, 0.56];
-
-    pulsos.forEach((offset) => {
-        const osc = audioCtxCpt.createOscillator();
-        const gain = audioCtxCpt.createGain();
-
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(980, agora + offset);
-        osc.frequency.exponentialRampToValueAtTime(1320, agora + offset + 0.14);
-
-        gain.gain.setValueAtTime(0.001, agora + offset);
-        gain.gain.exponentialRampToValueAtTime(0.85, agora + offset + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.001, agora + offset + 0.22);
-
-        osc.connect(gain);
-        gain.connect(audioCtxCpt.destination);
-
-        osc.start(agora + offset);
-        osc.stop(agora + offset + 0.23);
-    });
-}
-
-function mostrarAlertaVisualCpt(mensagem) {
-    let container = document.getElementById('cpt-alert-container');
-    if (!container) {
-        container = document.createElement('div');
-        container.id = 'cpt-alert-container';
-        container.style.cssText = `
-            position: fixed;
-            top: 18px;
-            right: 18px;
-            z-index: 99999;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            max-width: 380px;
-            width: calc(100% - 36px);
-        `;
-        document.body.appendChild(container);
-    }
-
-    const toast = document.createElement('div');
-    toast.style.cssText = `
-        background: linear-gradient(135deg, rgba(127, 29, 29, 0.96), rgba(15, 23, 42, 0.98));
-        border: 1px solid #f43f5e;
-        box-shadow: 0 0 24px rgba(244, 63, 94, 0.55), 0 12px 28px rgba(0, 0, 0, 0.7);
-        color: #fff;
-        padding: 14px 16px;
-        border-radius: 12px;
-        font-family: Inter, sans-serif;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-    `;
-
-    toast.innerHTML = `
-        <div style="font-size: 0.85rem; font-weight: 800; line-height: 1.35;">
-            🚨 ${mensagem}
-        </div>
-        <button type="button" style="
-            background: rgba(255,255,255,0.14);
-            color: #fff;
-            border: 1px solid rgba(255,255,255,0.25);
-            border-radius: 8px;
-            padding: 4px 9px;
-            font-size: 0.75rem;
-            font-weight: 700;
-            cursor: pointer;
-        ">OK</button>
-    `;
-
-    toast.querySelector('button').addEventListener('click', () => toast.remove());
-    container.appendChild(toast);
-
-    setTimeout(() => {
-        if (toast.parentNode) toast.remove();
-    }, 12000);
-}
-
-function notificarCptExpirado(numero, cptDatetimeStr) {
-    const chave = `${numero}-${cptDatetimeStr}`;
-    if (alertasCptDisparados.has(chave)) return;
-    alertasCptDisparados.add(chave);
-
-    tocarSomAlertaAlto();
-    mostrarAlertaVisualCpt(`Doca ${numero} CPT expirado, libere a doca.`);
-}
-
-function notificarChecklistSemFazer30Min(numero, placa, chegadaStr) {
-    const chave = `chk30-${numero}-${placa || ''}-${chegadaStr || ''}`;
-    if (alertasChecklist30MinDisparados.has(chave)) return;
-    alertasChecklist30MinDisparados.add(chave);
-
-    tocarSomAlertaAlto();
-    const refVeiculo = placa ? ` (${placa})` : '';
-    mostrarAlertaVisualCpt(`Doca ${numero}${refVeiculo} está há mais de 30 min no pátio e NÃO está feito o check list!`);
-}
-
-function limparAlertasChecklistDoca(numero) {
-    for (const chave of Array.from(alertasChecklist30MinDisparados)) {
-        if (chave.startsWith(`chk30-${numero}-`)) {
-            alertasChecklist30MinDisparados.delete(chave);
-        }
-    }
-}
-
-function garantirModalChecklist() {
-    let overlay = document.getElementById('checklist-modal-overlay');
-    if (overlay) return overlay;
-
-    overlay = document.createElement('div');
-    overlay.id = 'checklist-modal-overlay';
-    overlay.style.cssText = `
-        display: none;
-        position: fixed;
-        inset: 0;
-        background: rgba(2, 6, 23, 0.78);
-        backdrop-filter: blur(6px);
-        z-index: 99998;
-        align-items: center;
-        justify-content: center;
-        padding: 16px;
-    `;
-
-    overlay.innerHTML = `
-        <div style="
-            background: linear-gradient(160deg, #162238 0%, #0b1220 100%);
-            border: 1px solid rgba(56, 189, 248, 0.35);
-            border-radius: 16px;
-            padding: 20px;
-            max-width: 420px;
-            width: 100%;
-            color: #f8fafc;
-            font-family: Inter, sans-serif;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85);
-        ">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                <h3 style="margin: 0; font-size: 0.95rem; font-weight: 800; color: #38bdf8;">
-                    CHECK LIST — DOCA <span id="checklist-modal-doca-num"></span>
-                </h3>
-                <button type="button" id="close-checklist-modal" style="
-                    background: transparent;
-                    border: none;
-                    color: #94a3b8;
-                    font-size: 1.15rem;
-                    font-weight: 800;
-                    cursor: pointer;
-                ">✕</button>
-            </div>
-
-            <div id="checklist-modal-veiculo-info" style="
-                font-size: 0.78rem;
-                color: #cbd5e1;
-                background: rgba(15, 23, 42, 0.7);
-                border: 1px solid rgba(255, 255, 255, 0.07);
-                border-radius: 10px;
-                padding: 10px 12px;
-                margin-bottom: 14px;
-                line-height: 1.45;
-            "></div>
-
-            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 12px; font-size: 0.85rem; font-weight: 700;">
-                <input type="checkbox" id="checklist-modal-feito-checkbox" style="width: 18px; height: 18px; accent-color: #10b981; cursor: pointer;">
-                <span>Check list feito</span>
-            </label>
-
-            <label style="display: block; font-size: 0.7rem; font-weight: 700; color: #94a3b8; margin-bottom: 4px;">
-                OBSERVAÇÃO (OPCIONAL):
-            </label>
-            <input type="text" id="checklist-modal-obs-input" placeholder="Ex: Lacre conferido, carga ok..." maxlength="200" style="
-                width: 100%;
-                box-sizing: border-box;
-                padding: 8px 10px;
-                border-radius: 8px;
-                border: 1px solid rgba(255, 255, 255, 0.14);
-                background: rgba(9, 13, 22, 0.85);
-                color: #f8fafc;
-                font-size: 0.8rem;
-                margin-bottom: 16px;
-            ">
-
-            <div style="display: flex; gap: 8px; justify-content: flex-end;">
-                <button type="button" id="cancel-checklist-modal" style="
-                    padding: 8px 14px;
-                    border-radius: 8px;
-                    border: 1px solid rgba(255, 255, 255, 0.14);
-                    background: rgba(30, 41, 59, 0.8);
-                    color: #cbd5e1;
-                    font-size: 0.78rem;
-                    font-weight: 700;
-                    cursor: pointer;
-                ">Cancelar</button>
-                <button type="button" id="save-checklist-modal" style="
-                    padding: 8px 16px;
-                    border-radius: 8px;
-                    border: none;
-                    background: linear-gradient(135deg, #10b981, #059669);
-                    color: #06130e;
-                    font-size: 0.78rem;
-                    font-weight: 800;
-                    cursor: pointer;
-                ">Confirmar</button>
-            </div>
-        </div>
-    `;
-
-    document.body.appendChild(overlay);
-
-    overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) fecharModalChecklist();
-    });
-    document.getElementById('close-checklist-modal').addEventListener('click', fecharModalChecklist);
-    document.getElementById('cancel-checklist-modal').addEventListener('click', fecharModalChecklist);
-    document.getElementById('save-checklist-modal').addEventListener('click', salvarChecklistModal);
-
-    return overlay;
-}
-
-function abrirModalChecklist(numero) {
-    if (!numero) return;
-    checklistTargetDoca = String(numero);
-
-    const overlay = garantirModalChecklist();
-    const plateDisplay = document.getElementById(`plate-display-${numero}`);
-    const checklistBtn = document.querySelector(`.btn-checklist-box[data-doca="${numero}"]`);
-
-    const feitoAtual = checklistBtn
-        ? checklistBtn.getAttribute('data-checklist-feito') === 'true'
-        : (plateDisplay && plateDisplay.getAttribute('data-checklist-feito') === 'true');
-
-    const obsAtual = checklistBtn
-        ? (checklistBtn.getAttribute('data-checklist-obs') || '')
-        : (plateDisplay ? (plateDisplay.getAttribute('data-checklist-obs') || '') : '');
-
-    const placa = plateDisplay ? (plateDisplay.getAttribute('data-placa') || 'NÃO INFORMADA') : 'NÃO INFORMADA';
-    const nome = plateDisplay ? (plateDisplay.getAttribute('data-nome') || 'NÃO INFORMADO') : 'NÃO INFORMADO';
-    const regiao = plateDisplay ? (plateDisplay.getAttribute('data-regiao') || 'NÃO INFORMADA') : 'NÃO INFORMADA';
-
-    document.getElementById('checklist-modal-doca-num').innerText = checklistTargetDoca;
-    document.getElementById('checklist-modal-veiculo-info').innerHTML = `
-        <strong>PLACA:</strong> ${placa} &nbsp;|&nbsp; <strong>NOME:</strong> ${nome}<br>
-        <strong>REGIÃO:</strong> ${regiao}
-    `;
-    document.getElementById('checklist-modal-feito-checkbox').checked = Boolean(feitoAtual);
-    document.getElementById('checklist-modal-obs-input').value = obsAtual;
-
-    overlay.style.display = 'flex';
-}
-
-function fecharModalChecklist() {
-    const overlay = document.getElementById('checklist-modal-overlay');
-    if (overlay) overlay.style.display = 'none';
-    checklistTargetDoca = null;
-}
-
-async function salvarChecklistModal() {
-    if (!checklistTargetDoca) return;
-    const numero = checklistTargetDoca;
-    const feito = document.getElementById('checklist-modal-feito-checkbox').checked;
-    const obs = document.getElementById('checklist-modal-obs-input').value.trim();
-
-    try {
-        const response = await fetch(`/api/doca/${numero}/checklist`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                checklist_feito: feito,
-                checklist_obs: obs
-            })
-        });
-
-        if (response.ok) {
-            const resultado = await response.json();
-            if (resultado.success && resultado.doca) {
-                if (resultado.doca.checklist_feito) {
-                    limparAlertasChecklistDoca(numero);
-                }
-                atualizarCardNaTela(resultado.doca);
-                fecharModalChecklist();
-                fetchDocasStatus();
-                return;
-            }
-        }
-        alert('Erro ao salvar o check list.');
-    } catch (err) {
-        console.error('Erro ao salvar check list:', err);
-        alert('Erro de conexão ao salvar o check list.');
-    }
-}
-
-function gerarQuadradoChecklistHtml(doca) {
-    const feito = Boolean(doca.checklist_feito);
-    const obs = doca.checklist_obs || '';
-    const usuario = doca.checklist_usuario || '';
-    const dataHora = doca.checklist_data_hora || '';
-    const icone = feito ? '✅' : '❌';
-    const titulo = feito
-        ? `Check list feito${usuario ? ' por ' + usuario : ''}${dataHora ? ' (' + dataHora + ')' : ''} — Clique para alterar`
-        : 'Check list NÃO feito — Clique para marcar check list feito';
-
-    return `
-        <button
-            type="button"
-            class="btn-checklist-box"
-            title="${titulo}"
-            aria-label="Check list da Doca ${doca.numero}"
-            data-doca="${doca.numero}"
-            data-checklist-feito="${feito ? 'true' : 'false'}"
-            data-checklist-obs="${obs}"
-            data-checklist-usuario="${usuario}"
-            data-checklist-data-hora="${dataHora}"
-            style="
-                width: 28px;
-                height: 28px;
-                min-width: 28px;
-                border-radius: 6px;
-                border: 1px solid ${feito ? 'rgba(16, 185, 129, 0.7)' : 'rgba(244, 63, 94, 0.7)'};
-                background: ${feito ? 'rgba(16, 185, 129, 0.18)' : 'rgba(244, 63, 94, 0.18)'};
-                color: ${feito ? '#34d399' : '#fb7185'};
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 0.85rem;
-                font-weight: 800;
-                cursor: pointer;
-                padding: 0;
-                line-height: 1;
-            "
-        >${icone}</button>
-    `;
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-    const openSidebarBtn = document.getElementById('open-sidebar');
-    const closeSidebarBtn = document.getElementById('close-sidebar');
-    const sidebar = document.getElementById('sidebar');
-
-    if (openSidebarBtn && sidebar) {
-        openSidebarBtn.addEventListener('click', () => sidebar.classList.add('active'));
-    }
-
-    if (closeSidebarBtn && sidebar) {
-        closeSidebarBtn.addEventListener('click', () => sidebar.classList.remove('active'));
-    }
-
-    // Eventos do Modal de Colar Texto
-    const pasteOverlay = document.getElementById('paste-modal-overlay');
-    const pasteTextarea = document.getElementById('paste-modal-textarea');
-    const applyPasteBtn = document.getElementById('apply-paste-modal');
-    const closePasteBtn = document.getElementById('close-paste-modal');
-    const cancelPasteBtn = document.getElementById('cancel-paste-modal');
-
-    if (closePasteBtn) closePasteBtn.addEventListener('click', fecharModalColar);
-    if (cancelPasteBtn) cancelPasteBtn.addEventListener('click', fecharModalColar);
-    if (pasteOverlay) {
-        pasteOverlay.addEventListener('click', (e) => {
-            if (e.target === pasteOverlay) fecharModalColar();
-        });
-    }
-
-    if (applyPasteBtn && pasteTextarea) {
-        applyPasteBtn.addEventListener('click', () => {
-            const texto = pasteTextarea.value;
-            const numeroAlvo = pasteTargetDoca || (pasteOverlay && pasteOverlay.getAttribute('data-doca')) || (applyPasteBtn && applyPasteBtn.getAttribute('data-doca'));
-            const modoAlvo = pasteTargetModo || (pasteOverlay && pasteOverlay.getAttribute('data-modo')) || 'input';
-
-            if (!texto.trim()) {
-                alert('Cole o texto antes de preencher os campos.');
-                pasteTextarea.focus();
-                return;
-            }
-            aplicarTextoNosCampos(numeroAlvo, modoAlvo, texto);
-            fecharModalColar();
-        });
-    }
-
-    // Preenche automaticamente assim que o usuário cola (Ctrl+V / Colar) dentro da caixa
-    if (pasteTextarea) {
-        pasteTextarea.addEventListener('paste', () => {
-            setTimeout(() => {
-                const texto = pasteTextarea.value;
-                const numeroAlvo = pasteTargetDoca || (pasteOverlay && pasteOverlay.getAttribute('data-doca'));
-                const modoAlvo = pasteTargetModo || (pasteOverlay && pasteOverlay.getAttribute('data-modo')) || 'input';
-                if (texto.trim() && numeroAlvo) {
-                    aplicarTextoNosCampos(numeroAlvo, modoAlvo, texto);
-                    fecharModalColar();
-                }
-            }, 80);
-        });
-    }
-
-    // Clique nos cards para alternar visualização ou abrir edição
-    document.body.addEventListener('click', (e) => {
-        if (e.target.closest('input') || e.target.closest('button') || e.target.closest('form')) {
-            return;
-        }
-
-        const card = e.target.closest('.dock-card');
-        if (!card) return;
-
-        const status = card.getAttribute('data-status');
-        const numero = card.getAttribute('data-numero');
-
-        if (status === 'LIVRE') {
-            const form = document.getElementById(`form-${numero}`);
-            if (form) {
-                const isHidden = form.style.display === 'none' || form.style.display === '';
-                form.style.display = isHidden ? 'flex' : 'none';
-            }
-            return;
-        }
-
-        if (status === 'OCUPADA') {
-            const plateDisplay = document.getElementById(`plate-display-${numero}`);
-            if (plateDisplay) {
-                const modoDetalhado = plateDisplay.getAttribute('data-detalhes') === 'true';
-                
-                const placa = plateDisplay.getAttribute('data-placa') || '';
-                const regiao = plateDisplay.getAttribute('data-regiao') || '';
-                const cpt = plateDisplay.getAttribute('data-cpt') || '';
-                const cptDatetime = plateDisplay.getAttribute('data-cptdatetime') || '';
-                const nome = plateDisplay.getAttribute('data-nome') || '';
-                const chegada = plateDisplay.getAttribute('data-chegada') || '';
-                const eta = plateDisplay.getAttribute('data-eta') || '';
-                const checklistFeito = plateDisplay.getAttribute('data-checklist-feito') === 'true';
-
-                if (!modoDetalhado) {
-                    plateDisplay.innerHTML = `
-                        <span class="plate-label">NOME:</span>
-                        <span class="plate-value" style="font-size: 0.95rem; padding: 4px 8px;">${nome || 'NÃO INFORMADO'}</span>
-                        <span class="plate-label" style="margin-top: 4px;">PLACA:</span>
-                        <span class="plate-value">${placa || 'NÃO INFORMADA'}</span>
-                        <span class="destination-label" style="margin-top: 4px;">REGIÃO:</span>
-                        <span class="destination-value">${regiao || 'NÃO INFORMADA'}</span>
-                        <span class="destination-label" style="margin-top: 4px;">CHEGADA:</span>
-                        <span class="destination-value">${chegada || 'NÃO INFORMADA'}</span>
-                        <span class="destination-label" style="margin-top: 4px;">ETA:</span>
-                        <span class="destination-value">${eta || 'NÃO INFORMADA'}</span>
-                        <span class="destination-label" style="margin-top: 4px;">CPT:</span>
-                        <span class="destination-value">${cpt || 'NÃO INFORMADO'}</span>
-                        <div style="margin-top: 6px; font-size: 0.7rem; font-weight: 700; color: #f43f5e;" id="cpt-timer-${numero}" data-cptdatetime="${cptDatetime}">
-                            ⏳ CPT: Calculando...
-                        </div>
-                        <div style="margin-top: 4px; font-size: 0.7rem; font-weight: 700; color: #10b981;" id="chegada-timer-${numero}" data-chegada="${chegada}" data-placa="${placa}" data-checklist-feito="${checklistFeito ? 'true' : 'false'}">
-                            ⏱️ TEMPO NO PÁTIO: 00:00:00
-                        </div>
-                        <div style="display: flex; gap: 4px; margin-top: 8px;">
-                            <button type="button" class="btn-action btn-edit-open" data-numero="${numero}" style="background: var(--accent-blue); color: #0f172a; flex: 1; font-size: 0.75rem;">✏️ Editar Dados</button>
-                        </div>
-                        <small style="color: var(--accent-blue); margin-top: 4px; font-size: 0.65rem; text-align: center; cursor: pointer;">🔍 Clique para recolher</small>
-                    `;
-                    plateDisplay.setAttribute('data-detalhes', 'true');
-                } else {
-                    plateDisplay.innerHTML = `
-                        <span class="plate-label">PLACA:</span>
-                        <span class="plate-value">${placa || 'NÃO INFORMADA'}</span>
-                        <span class="destination-label" style="margin-top: 6px;">REGIÃO:</span>
-                        <span class="destination-value">${regiao || 'NÃO INFORMADO'}</span>
-                        <span class="destination-label" style="margin-top: 6px;">CPT:</span>
-                        <span class="destination-value">${cpt || 'NÃO INFORMADO'}</span>
-                        <div style="margin-top: 6px; font-size: 0.7rem; font-weight: 700; color: #f43f5e;" id="cpt-timer-${numero}" data-cptdatetime="${cptDatetime}">
-                            ⏳ CPT: Calculando...
-                        </div>
-                        <div style="margin-top: 4px; font-size: 0.7rem; font-weight: 700; color: #10b981;" id="chegada-timer-${numero}" data-chegada="${chegada}" data-placa="${placa}" data-checklist-feito="${checklistFeito ? 'true' : 'false'}">
-                            ⏱️ TEMPO NO PÁTIO: 00:00:00
-                        </div>
-                        <small style="color: var(--text-muted); margin-top: 6px; font-size: 0.65rem; text-align: center; cursor: pointer;">🔍 Clique para ver detalhes / editar</small>
-                    `;
-                    plateDisplay.setAttribute('data-detalhes', 'false');
-                }
-            }
-            return;
-        }
-    });
-
-    // Eventos para Botões de Ação, Edição, Salvamento, WhatsApp, Colar e Check List
-    document.body.addEventListener('click', async (e) => {
-        const checklistBtn = e.target.closest('.btn-checklist-box');
-        if (checklistBtn) {
-            const card = checklistBtn.closest('.dock-card');
-            const numero = checklistBtn.getAttribute('data-doca') || (card && card.getAttribute('data-numero'));
-            if (numero) abrirModalChecklist(numero);
-            return;
-        }
-
-        const shareBtn = e.target.closest('.btn-share-whatsapp');
-        if (shareBtn) {
-            const dados = {
-                doca: shareBtn.dataset.doca,
-                nome: shareBtn.dataset.nome,
-                regiao: shareBtn.dataset.regiao,
-                placa: shareBtn.dataset.placa,
-                chegada: shareBtn.dataset.chegada,
-                eta: shareBtn.dataset.eta,
-                cpt: shareBtn.dataset.cpt
-            };
-
-            const texto = formatarMensagemWhatsApp(dados);
-            const url = `https://wa.me/?text=${encodeURIComponent(texto)}`;
-            window.open(url, '_blank', 'noopener,noreferrer');
-            return;
-        }
-
-        const pasteBtn = e.target.closest('.btn-paste-data');
-        if (pasteBtn) {
-            const card = pasteBtn.closest('.dock-card');
-            const numero = pasteBtn.getAttribute('data-numero') || (card && card.getAttribute('data-numero'));
-            const modo = pasteBtn.getAttribute('data-modo') || 'input';
-
-            if (!numero) return;
-
-            if (modo === 'edit') {
-                abrirFormularioEdicao(numero);
-            } else {
-                const form = document.getElementById(`form-${numero}`);
-                if (form) form.style.display = 'flex';
-            }
-
-            abrirModalColar(numero, modo);
-            return;
-        }
-
-        if (e.target.classList.contains('action-btn-cancel') || e.target.classList.contains('btn-edit-cancel')) {
-            fetchDocasStatus();
-        }
-
-        if (e.target.classList.contains('btn-edit-open')) {
-            const card = e.target.closest('.dock-card');
-            const numero = e.target.getAttribute('data-numero') || (card && card.getAttribute('data-numero'));
-            if (numero) abrirFormularioEdicao(numero);
-        }
-
-        if (e.target.classList.contains('action-btn-occupy')) {
-            const card = e.target.closest('.dock-card');
-            const numero = e.target.getAttribute('data-numero') || (card && card.getAttribute('data-numero'));
-            if (numero) enviarDadosDoca(numero, 'OCUPADA', 'status');
-        }
-
-        if (e.target.classList.contains('btn-edit-save')) {
-            const card = e.target.closest('.dock-card');
-            const numero = e.target.getAttribute('data-numero') || (card && card.getAttribute('data-numero'));
-            if (numero) enviarDadosDoca(numero, 'OCUPADA', 'editar');
-        }
-
-        if (e.target.classList.contains('action-btn-release')) {
-            const card = e.target.closest('.dock-card');
-            const numero = e.target.getAttribute('data-numero') || (card && card.getAttribute('data-numero'));
-            if (numero) alterarStatusComDados(numero, 'LIVRE', {});
-        }
-    });
-
-    setInterval(fetchDocasStatus, 3000);
-
-    setInterval(() => {
-        atualizarCronometrosCPT();
-        atualizarCronometrosChegada();
-    }, 1000);
-});
-
-async function abrirModalColar(numero, modo) {
-    if (!numero) return;
-
-    pasteTargetDoca = String(numero);
-    pasteTargetModo = modo || 'input';
-
-    const overlay = document.getElementById('paste-modal-overlay');
-    const textarea = document.getElementById('paste-modal-textarea');
-    const docaNumSpan = document.getElementById('paste-modal-doca-num');
-    const applyPasteBtn = document.getElementById('apply-paste-modal');
-
-    if (overlay) {
-        overlay.setAttribute('data-doca', pasteTargetDoca);
-        overlay.setAttribute('data-modo', pasteTargetModo);
-        overlay.style.display = 'flex';
-    }
-    if (applyPasteBtn) {
-        applyPasteBtn.setAttribute('data-doca', pasteTargetDoca);
-        applyPasteBtn.setAttribute('data-modo', pasteTargetModo);
-    }
-    if (docaNumSpan) docaNumSpan.innerText = pasteTargetDoca;
-    if (textarea) textarea.value = '';
-
-    if (navigator.clipboard && navigator.clipboard.readText) {
-        try {
-            const textoCopiado = await navigator.clipboard.readText();
-            if (textoCopiado && textoCopiado.trim() && textarea) {
-                textarea.value = textoCopiado;
-                aplicarTextoNosCampos(pasteTargetDoca, pasteTargetModo, textoCopiado);
-            }
-        } catch (err) {
-            // Mantém o modal aberto para colagem manual
-        }
-    }
-
-    if (textarea) {
-        setTimeout(() => textarea.focus(), 50);
-    }
-}
-
-function fecharModalColar() {
-    const overlay = document.getElementById('paste-modal-overlay');
-    if (overlay) overlay.style.display = 'none';
-}
-
-function extrairCampoPorRotulo(textoLimpo, padraoRotulo, todosRotulosRegex) {
-    const regex = new RegExp(
-        `(?:^|[\\r\\n\\s•\\-\\*\\|]+)(?:${padraoRotulo})\\s*[:\\-]?\\s*(.+?)(?=(?:[\\r\\n]+|(?:[\\s•\\-\\*\\|]+)?(?:${todosRotulosRegex})\\s*[:\\-]?)|$)`,
-        'i'
-    );
-    const match = textoLimpo.match(regex);
-    if (!match || !match[1]) return '';
-
-    return match[1]
-        .replace(/^[\s•\-\*⚪🚚📦🔴🟢🟡⏳⏱️]+/gu, '')
-        .replace(/[\s•\-\*⚪🚚📦🔴🟢🟡⏳⏱️]+$/gu, '')
-        .trim();
-}
-
-function interpretarTextoColado(texto) {
-    const resultado = {
-        nome: '',
-        regiao: '',
-        placa: '',
-        chegada: '',
-        eta: '',
-        cptStr: '',
-        cptDatetime: ''
-    };
-
-    if (!texto || !texto.trim()) return resultado;
-
-    const textoNormalizado = texto
-        .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}⚪🚚📦🔴🟢🟡⏳⏱️]/gu, ' ')
-        .replace(/[ \t]+/g, ' ');
-
-    const todosRotulos = 'NOME|MOTORISTA|REGI[ÃA]O|REGIAO|DESTINO|PLACA|DOCA|CHEGADA|ETA|CPT';
-
-    const nomeVal = extrairCampoPorRotulo(textoNormalizado, 'NOME|MOTORISTA', todosRotulos);
-    if (nomeVal) resultado.nome = nomeVal;
-
-    const regiaoVal = extrairCampoPorRotulo(textoNormalizado, 'REGI[ÃA]O|REGIAO|DESTINO', todosRotulos);
-    if (regiaoVal) resultado.regiao = regiaoVal;
-
-    const placaVal = extrairCampoPorRotulo(textoNormalizado, 'PLACA', todosRotulos);
-    if (placaVal) resultado.placa = placaVal.toUpperCase();
-
-    const chegadaVal = extrairCampoPorRotulo(textoNormalizado, 'CHEGADA', todosRotulos);
-    if (chegadaVal) resultado.chegada = chegadaVal;
-
-    const etaVal = extrairCampoPorRotulo(textoNormalizado, 'ETA', todosRotulos);
-    if (etaVal) resultado.eta = etaVal;
-
-    const cptVal = extrairCampoPorRotulo(textoNormalizado, 'CPT', todosRotulos);
-    if (cptVal) {
-        resultado.cptStr = cptVal;
-
-        const hoje = new Date();
-        const anoAtual = hoje.getFullYear();
-
-        const matchDataHora = cptVal.match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\s+(\d{1,2}):(\d{2})/);
-        if (matchDataHora) {
-            const dia = matchDataHora[1].padStart(2, '0');
-            const mes = matchDataHora[2].padStart(2, '0');
-            const ano = matchDataHora[3]
-                ? (matchDataHora[3].length === 2 ? `20${matchDataHora[3]}` : matchDataHora[3])
-                : String(anoAtual);
-            const hora = matchDataHora[4].padStart(2, '0');
-            const min = matchDataHora[5].padStart(2, '0');
-            resultado.cptDatetime = `${ano}-${mes}-${dia}T${hora}:${min}`;
-        } else {
-            const matchSoHora = cptVal.match(/(\d{1,2}):(\d{2})/);
-            if (matchSoHora) {
-                const dia = String(hoje.getDate()).padStart(2, '0');
-                const mes = String(hoje.getMonth() + 1).padStart(2, '0');
-                const hora = matchSoHora[1].padStart(2, '0');
-                const min = matchSoHora[2].padStart(2, '0');
-                resultado.cptDatetime = `${anoAtual}-${mes}-${dia}T${hora}:${min}`;
-            }
-        }
-    }
-
-    return resultado;
-}
-
-function aplicarTextoNosCampos(numero, modo, texto) {
-    if (!numero) return;
-    const dados = interpretarTextoColado(texto);
-    const prefix = modo === 'edit' ? 'edit' : 'input';
-
-    const nomeEl = document.getElementById(`${prefix}-nome-${numero}`);
-    const regiaoEl = document.getElementById(`${prefix}-regiao-${numero}`);
-    const placaEl = document.getElementById(`${prefix}-placa-${numero}`);
-    const chegadaEl = document.getElementById(`${prefix}-chegada-${numero}`);
-    const etaEl = document.getElementById(`${prefix}-eta-${numero}`);
-    const cptEl = document.getElementById(`${prefix}-cpt-${numero}`);
-
-    if (nomeEl && dados.nome) nomeEl.value = dados.nome;
-    if (regiaoEl && dados.regiao) regiaoEl.value = dados.regiao;
-    if (placaEl && dados.placa) placaEl.value = dados.placa;
-    if (chegadaEl && dados.chegada) chegadaEl.value = dados.chegada;
-    if (etaEl && dados.eta) etaEl.value = dados.eta;
-    if (cptEl && dados.cptDatetime) cptEl.value = dados.cptDatetime;
-}
-
-function gerarHtmlAcoesOcupada(doca) {
-    const nome = doca.nome || 'NÃO INFORMADO';
-    const regiao = doca.regiao || 'NÃO INFORMADA';
-    const placa = doca.placa || 'NÃO INFORMADA';
-    const chegada = doca.chegada || 'NÃO INFORMADA';
-    const eta = doca.eta || 'NÃO INFORMADA';
-    const cpt = doca.cpt || 'NÃO INFORMADO';
-
-    return `
-        <div class="dock-ocupada-actions">
-            <button type="button" class="btn-action action-btn-release" data-numero="${doca.numero}">Liberar Doca</button>
-            <div class="dock-bottom-mini-actions" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                <button
-                    type="button"
-                    class="btn-share-whatsapp"
-                    title="Compartilhar no WhatsApp"
-                    aria-label="Compartilhar Doca ${doca.numero} no WhatsApp"
-                    data-doca="${doca.numero}"
-                    data-nome="${nome}"
-                    data-regiao="${regiao}"
-                    data-placa="${placa}"
-                    data-chegada="${chegada}"
-                    data-eta="${eta}"
-                    data-cpt="${cpt}"
-                >
-                    📤 WhatsApp
-                </button>
-                <button
-                    type="button"
-                    class="btn-paste-data"
-                    title="Colar texto copiado para preencher campos"
-                    aria-label="Colar dados na Doca ${doca.numero}"
-                    data-numero="${doca.numero}"
-                    data-modo="edit"
-                >
-                    📋 Colar
-                </button>
-                ${gerarQuadradoChecklistHtml(doca)}
-            </div>
-        </div>
-    `;
-}
-
-function abrirFormularioEdicao(numero) {
-    const plateDisplay = document.getElementById(`plate-display-${numero}`);
-    if (!plateDisplay) return;
-
-    const placa = plateDisplay.getAttribute('data-placa') || '';
-    const regiao = plateDisplay.getAttribute('data-regiao') || '';
-    const nome = plateDisplay.getAttribute('data-nome') || '';
-    const chegada = plateDisplay.getAttribute('data-chegada') || '';
-    const eta = plateDisplay.getAttribute('data-eta') || '';
-    const cptDatetime = plateDisplay.getAttribute('data-cptdatetime') || '';
-
-    plateDisplay.innerHTML = `
-        <div class="plate-input-group" style="text-align: left;">
-            <div style="display: flex; justify-content: flex-start; margin-bottom: 4px;">
-                <button type="button" class="btn-paste-data" data-numero="${numero}" data-modo="edit" title="Colar texto copiado">
-                    📋 Colar Texto
-                </button>
-            </div>
-            <label style="font-size: 0.65rem; color: var(--text-muted);">EDITAR NOME:</label>
-            <input type="text" id="edit-nome-${numero}" class="input-plate" value="${nome}" maxlength="100" style="font-size: 0.8rem; padding: 6px;">
-            <label style="font-size: 0.65rem; color: var(--text-muted); margin-top: 4px;">EDITAR REGIÃO:</label>
-            <input type="text" id="edit-regiao-${numero}" class="input-plate" value="${regiao}" maxlength="100" style="font-size: 0.8rem; padding: 6px;">
-            <label style="font-size: 0.65rem; color: var(--text-muted); margin-top: 4px;">EDITAR PLACA:</label>
-            <input type="text" id="edit-placa-${numero}" class="input-plate" value="${placa}" maxlength="10" style="font-size: 0.8rem; padding: 6px;">
-            <label style="font-size: 0.65rem; color: var(--text-muted); margin-top: 4px;">EDITAR CHEGADA:</label>
-            <input type="text" id="edit-chegada-${numero}" class="input-plate" value="${chegada}" maxlength="20" style="font-size: 0.8rem; padding: 6px;">
-            <label style="font-size: 0.65rem; color: var(--text-muted); margin-top: 4px;">EDITAR ETA:</label>
-            <input type="text" id="edit-eta-${numero}" class="input-plate" value="${eta}" maxlength="20" style="font-size: 0.8rem; padding: 6px;">
-            <label style="font-size: 0.65rem; color: var(--text-muted); margin-top: 4px;">EDITAR CPT:</label>
-            <input type="datetime-local" id="edit-cpt-${numero}" class="input-plate" value="${cptDatetime}" style="color-scheme: dark; font-size: 0.75rem; padding: 6px;">
-            <div style="display: flex; gap: 4px; margin-top: 8px;">
-                <button type="button" class="btn-action btn-edit-save" data-numero="${numero}" style="background: var(--green-neon); color: #090d16; flex: 1;">Salvar</button>
-                <button type="button" class="btn-action btn-edit-cancel" data-numero="${numero}" style="background: var(--red-neon); color: #fff; width: 40px;">X</button>
-            </div>
-        </div>
-    `;
-}
-
-function enviarDadosDoca(numero, statusDoca, acaoTipo) {
-    if (!numero) return;
-    const prefix = acaoTipo === 'editar' ? 'edit' : 'input';
+import os
+from datetime import datetime, timedelta
+from io import BytesIO
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
+from werkzeug.security import generate_password_hash, check_password_hash
+from sqlalchemy import inspect, text, or_
+
+app = Flask(__name__)
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'chave-secreta-docas-2026-neon')
+
+DATABASE_URL = os.environ.get('DATABASE_URL') or 'postgresql://neondb_owner:npg_5pCBLb2VHoKa@ep-wandering-night-b5dj5kku-pooler.c-7.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require'
+
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+if DATABASE_URL.startswith("postgresql://") and not "+psycopg" in DATABASE_URL:
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db = SQLAlchemy(app)
+login_manager = LoginManager(app)
+login_manager.login_view = 'login'
+
+class User(UserMixin, db.Model):
+    __tablename__ = 'users'
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(50), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+    is_admin = db.Column(db.Boolean, default=False)
+    is_approved = db.Column(db.Boolean, default=False)
+
+class Doca(db.Model):
+    __tablename__ = 'docas'
+    id = db.Column(db.Integer, primary_key=True)
+    numero = db.Column(db.Integer, unique=True, nullable=False)
+    tipo = db.Column(db.String(10), nullable=False)
+    status = db.Column(db.String(20), default='LIVRE')
     
-    const nomeInput = document.getElementById(`${prefix}-nome-${numero}`);
-    const regiaoInput = document.getElementById(`${prefix}-regiao-${numero}`);
-    const placaInput = document.getElementById(`${prefix}-placa-${numero}`);
-    const chegadaInput = document.getElementById(`${prefix}-chegada-${numero}`);
-    const etaInput = document.getElementById(`${prefix}-eta-${numero}`);
-    const cptInput = document.getElementById(`${prefix}-cpt-${numero}`);
+    nome = db.Column(db.String(100), nullable=True, default='')
+    regiao = db.Column(db.String(100), nullable=True, default='')
+    placa = db.Column(db.String(20), nullable=True, default='')
+    chegada = db.Column(db.String(20), nullable=True, default='')
+    eta = db.Column(db.String(20), nullable=True, default='')
+    cpt = db.Column(db.String(50), nullable=True, default='')
+    cpt_datetime = db.Column(db.String(50), nullable=True, default='')
+    usuario_atribuicao = db.Column(db.String(50), nullable=True, default='')
 
-    const nome = nomeInput ? nomeInput.value.trim() : '';
-    const regiao = regiaoInput ? regiaoInput.value.trim() : '';
-    const placa = placaInput ? placaInput.value.trim() : '';
-    const chegada = chegadaInput ? chegadaInput.value.trim() : '';
-    const eta = etaInput ? etaInput.value.trim() : '';
+    checklist_feito = db.Column(db.Boolean, default=False)
+    checklist_usuario = db.Column(db.String(50), nullable=True, default='')
+    checklist_data_hora = db.Column(db.String(50), nullable=True, default='')
+    checklist_obs = db.Column(db.String(255), nullable=True, default='')
     
-    let cptStr = '';
-    let cptDatetime = '';
+    ultima_atualizacao = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    if (cptInput && cptInput.value) {
-        cptDatetime = cptInput.value;
-        const dataObj = new Date(cptDatetime);
-        if (!isNaN(dataObj)) {
-            const dia = String(dataObj.getDate()).padStart(2, '0');
-            const mes = String(dataObj.getMonth() + 1).padStart(2, '0');
-            const hora = String(dataObj.getHours()).padStart(2, '0');
-            const min = String(dataObj.getMinutes()).padStart(2, '0');
-            cptStr = `${dia}/${mes} ${hora}:${min}`;
-        }
-    }
-
-    if (!placa) {
-        alert('Por favor, informe a placa do veículo.');
-        if (placaInput) placaInput.focus();
-        return;
-    }
-
-    alterarStatusComDados(numero, statusDoca, { nome, regiao, placa, chegada, eta, cpt: cptStr, cpt_datetime: cptDatetime, acao: acaoTipo });
-}
-
-async function alterarStatusComDados(numeroDoca, novoStatus, dados) {
-    if (!numeroDoca) return;
-    try {
-        const response = await fetch(`/api/doca/${numeroDoca}/update`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: novoStatus, ...dados })
-        });
-
-        if (response.ok) {
-            const resultado = await response.json();
-            if (resultado.success) {
-                if (novoStatus === 'LIVRE' || dados.acao === 'status') {
-                    limparAlertasChecklistDoca(numeroDoca);
-                }
-                atualizarCardNaTela(resultado.doca);
-                fetchDocasStatus();
-            }
-        } else {
-            alert('Erro ao atualizar a doca.');
-        }
-    } catch (err) {
-        console.error('Erro de conexão:', err);
-    }
-}
-
-function atualizarCardNaTela(doca) {
-    const card = document.getElementById(`doca-card-${doca.numero}`);
-    if (!card) return;
-
-    card.className = `dock-card ${doca.status.toLowerCase()}`;
-    card.setAttribute('data-status', doca.status);
-
-    const checklistFeito = Boolean(doca.checklist_feito);
-    const plateDisplay = document.getElementById(`plate-display-${doca.numero}`);
-    if (plateDisplay) {
-        plateDisplay.setAttribute('data-placa', doca.placa || '');
-        plateDisplay.setAttribute('data-regiao', doca.regiao || '');
-        plateDisplay.setAttribute('data-cpt', doca.cpt || '');
-        plateDisplay.setAttribute('data-cptdatetime', doca.cpt_datetime || '');
-        plateDisplay.setAttribute('data-nome', doca.nome || '');
-        plateDisplay.setAttribute('data-chegada', doca.chegada || '');
-        plateDisplay.setAttribute('data-eta', doca.eta || '');
-        plateDisplay.setAttribute('data-checklist-feito', checklistFeito ? 'true' : 'false');
-        plateDisplay.setAttribute('data-checklist-obs', doca.checklist_obs || '');
-        plateDisplay.setAttribute('data-checklist-usuario', doca.checklist_usuario || '');
-        plateDisplay.setAttribute('data-checklist-data-hora', doca.checklist_data_hora || '');
-
-        const modoDetalhado = plateDisplay.getAttribute('data-detalhes') === 'true';
-
-        if (doca.status === 'OCUPADA') {
-            if (modoDetalhado) {
-                plateDisplay.innerHTML = `
-                    <span class="plate-label">NOME:</span>
-                    <span class="plate-value" style="font-size: 0.95rem; padding: 4px 8px;">${doca.nome || 'NÃO INFORMADO'}</span>
-                    <span class="plate-label" style="margin-top: 4px;">PLACA:</span>
-                    <span class="plate-value">${doca.placa || 'NÃO INFORMADA'}</span>
-                    <span class="destination-label" style="margin-top: 4px;">REGIÃO:</span>
-                    <span class="destination-value">${doca.regiao || 'NÃO INFORMADA'}</span>
-                    <span class="destination-label" style="margin-top: 4px;">CHEGADA:</span>
-                    <span class="destination-value">${doca.chegada || 'NÃO INFORMADA'}</span>
-                    <span class="destination-label" style="margin-top: 4px;">ETA:</span>
-                    <span class="destination-value">${doca.eta || 'NÃO INFORMADA'}</span>
-                    <span class="destination-label" style="margin-top: 4px;">CPT:</span>
-                    <span class="destination-value">${doca.cpt || 'NÃO INFORMADO'}</span>
-                    <div style="margin-top: 6px; font-size: 0.7rem; font-weight: 700; color: #f43f5e;" id="cpt-timer-${doca.numero}" data-cptdatetime="${doca.cpt_datetime || ''}">
-                        ⏳ CPT: Calculando...
-                    </div>
-                    <div style="margin-top: 4px; font-size: 0.7rem; font-weight: 700; color: #10b981;" id="chegada-timer-${doca.numero}" data-chegada="${doca.chegada || ''}" data-placa="${doca.placa || ''}" data-checklist-feito="${checklistFeito ? 'true' : 'false'}">
-                        ⏱️ TEMPO NO PÁTIO: 00:00:00
-                    </div>
-                    <div style="display: flex; gap: 4px; margin-top: 8px;">
-                        <button type="button" class="btn-action btn-edit-open" data-numero="${doca.numero}" style="background: var(--accent-blue); color: #0f172a; flex: 1; font-size: 0.75rem;">✏️ Editar Dados</button>
-                    </div>
-                    <small style="color: var(--accent-blue); margin-top: 4px; font-size: 0.65rem; text-align: center; cursor: pointer;">🔍 Clique para recolher</small>
-                `;
-            } else {
-                plateDisplay.innerHTML = `
-                    <span class="plate-label">PLACA:</span>
-                    <span class="plate-value">${doca.placa || 'NÃO INFORMADA'}</span>
-                    <span class="destination-label" style="margin-top: 6px;">REGIÃO:</span>
-                    <span class="destination-value">${doca.regiao || 'NÃO INFORMADO'}</span>
-                    <span class="destination-label" style="margin-top: 6px;">CPT:</span>
-                    <span class="destination-value">${doca.cpt || 'NÃO INFORMADO'}</span>
-                    <div style="margin-top: 6px; font-size: 0.7rem; font-weight: 700; color: #f43f5e;" id="cpt-timer-${doca.numero}" data-cptdatetime="${doca.cpt_datetime || ''}">
-                        ⏳ CPT: Calculando...
-                    </div>
-                    <div style="margin-top: 4px; font-size: 0.7rem; font-weight: 700; color: #10b981;" id="chegada-timer-${doca.numero}" data-chegada="${doca.chegada || ''}" data-placa="${doca.placa || ''}" data-checklist-feito="${checklistFeito ? 'true' : 'false'}">
-                        ⏱️ TEMPO NO PÁTIO: 00:00:00
-                    </div>
-                    <small style="color: var(--text-muted); margin-top: 6px; font-size: 0.65rem; text-align: center; cursor: pointer;">🔍 Clique para ver detalhes / editar</small>
-                `;
-            }
-        } else {
-            plateDisplay.innerHTML = `<span class="plate-placeholder">LIVRE PARA CARGAMENTO</span>`;
-            plateDisplay.removeAttribute('data-detalhes');
-        }
-    }
-
-    const adminControls = document.getElementById(`admin-controls-${doca.numero}`);
-    const temPermissao = adminControls && (adminControls.innerHTML.trim() !== '');
-
-    if (adminControls && temPermissao) {
-        if (doca.status === 'OCUPADA') {
-            adminControls.innerHTML = gerarHtmlAcoesOcupada(doca);
-        } else {
-            adminControls.innerHTML = `
-                <div class="plate-input-group form-atribuicao" id="form-${doca.numero}" style="display: none; margin-top: 8px;">
-                    <div style="display: flex; justify-content: flex-start; margin-bottom: 4px;">
-                        <button type="button" class="btn-paste-data" data-numero="${doca.numero}" data-modo="input" title="Colar texto copiado">
-                            📋 Colar Texto
-                        </button>
-                    </div>
-                    <input type="text" id="input-nome-${doca.numero}" class="input-plate" placeholder="NOME" maxlength="100">
-                    <input type="text" id="input-regiao-${doca.numero}" class="input-plate" placeholder="REGIÃO" maxlength="100" style="margin-top: 6px;">
-                    <input type="text" id="input-placa-${doca.numero}" class="input-plate" placeholder="PLACA (ABC-1D23)" maxlength="10" style="margin-top: 6px;">
-                    <input type="text" id="input-chegada-${doca.numero}" class="input-plate" placeholder="CHEGADA (Ex: 22:00)" maxlength="20" style="margin-top: 6px;">
-                    <input type="text" id="input-eta-${doca.numero}" class="input-plate" placeholder="ETA" maxlength="20" style="margin-top: 6px;">
-                    <div style="margin-top: 6px;">
-                        <label style="font-size: 0.65rem; color: var(--text-muted); font-weight: 700; display: block; margin-bottom: 2px;">DATA E HORA CPT:</label>
-                        <input type="datetime-local" id="input-cpt-${doca.numero}" class="input-plate" style="color-scheme: dark; font-size: 0.8rem;">
-                    </div>
-                    <div style="display: flex; gap: 4px; margin-top: 8px;">
-                        <button type="button" class="btn-action action-btn-occupy" data-numero="${doca.numero}" style="flex: 1;">Atribuir</button>
-                        <button type="button" class="btn-action action-btn-cancel" data-numero="${doca.numero}" style="background: var(--red-neon); color: #fff; width: 40px;">X</button>
-                    </div>
-                </div>
-            `;
-        }
-    }
-
-    const timeEl = document.getElementById(`time-${doca.numero}`);
-    if (timeEl && doca.ultima_atualizacao) {
-        timeEl.innerText = doca.ultima_atualizacao;
-    }
-}
-
-async function fetchDocasStatus() {
-    const formularioAberto = Array.from(document.querySelectorAll('.form-atribuicao')).some(f => f.style.display === 'flex');
-    if (formularioAberto) return;
-
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.has('q') && urlParams.get('q').trim() !== '') return;
-
-    try {
-        const response = await fetch('/api/docas');
-        if (!response.ok) return;
-
-        const docas = await response.json();
-        let livres = 0;
-        let ocupadas = 0;
-
-        docas.forEach(doca => {
-            if (doca.status === 'LIVRE') livres++;
-            if (doca.status === 'OCUPADA') ocupadas++;
-
-            const card = document.getElementById(`doca-card-${doca.numero}`);
-            if (card) {
-                const checklistFeito = Boolean(doca.checklist_feito);
-                const plateDisplay = document.getElementById(`plate-display-${doca.numero}`);
-                if (plateDisplay) {
-                    plateDisplay.setAttribute('data-placa', doca.placa || '');
-                    plateDisplay.setAttribute('data-regiao', doca.regiao || '');
-                    plateDisplay.setAttribute('data-cpt', doca.cpt || '');
-                    plateDisplay.setAttribute('data-cptdatetime', doca.cpt_datetime || '');
-                    plateDisplay.setAttribute('data-nome', doca.nome || '');
-                    plateDisplay.setAttribute('data-chegada', doca.chegada || '');
-                    plateDisplay.setAttribute('data-eta', doca.eta || '');
-                    plateDisplay.setAttribute('data-checklist-feito', checklistFeito ? 'true' : 'false');
-                    plateDisplay.setAttribute('data-checklist-obs', doca.checklist_obs || '');
-                    plateDisplay.setAttribute('data-checklist-usuario', doca.checklist_usuario || '');
-                    plateDisplay.setAttribute('data-checklist-data-hora', doca.checklist_data_hora || '');
-                }
-
-                const chegadaTimer = document.getElementById(`chegada-timer-${doca.numero}`);
-                if (chegadaTimer) {
-                    chegadaTimer.setAttribute('data-placa', doca.placa || '');
-                    chegadaTimer.setAttribute('data-checklist-feito', checklistFeito ? 'true' : 'false');
-                }
-
-                const shareBtn = card.querySelector('.btn-share-whatsapp');
-                if (shareBtn && doca.status === 'OCUPADA') {
-                    shareBtn.dataset.doca = doca.numero;
-                    shareBtn.dataset.nome = doca.nome || 'NÃO INFORMADO';
-                    shareBtn.dataset.regiao = doca.regiao || 'NÃO INFORMADA';
-                    shareBtn.dataset.placa = doca.placa || 'NÃO INFORMADA';
-                    shareBtn.dataset.chegada = doca.chegada || 'NÃO INFORMADA';
-                    shareBtn.dataset.eta = doca.eta || 'NÃO INFORMADA';
-                    shareBtn.dataset.cpt = doca.cpt || 'NÃO INFORMADO';
-                }
-
-                const checklistBtn = card.querySelector('.btn-checklist-box');
-                if (checklistBtn && doca.status === 'OCUPADA') {
-                    const icone = checklistFeito ? '✅' : '❌';
-                    checklistBtn.innerHTML = icone;
-                    checklistBtn.setAttribute('data-checklist-feito', checklistFeito ? 'true' : 'false');
-                    checklistBtn.setAttribute('data-checklist-obs', doca.checklist_obs || '');
-                    checklistBtn.setAttribute('data-checklist-usuario', doca.checklist_usuario || '');
-                    checklistBtn.setAttribute('data-checklist-data-hora', doca.checklist_data_hora || '');
-                    checklistBtn.style.borderColor = checklistFeito ? 'rgba(16, 185, 129, 0.7)' : 'rgba(244, 63, 94, 0.7)';
-                    checklistBtn.style.background = checklistFeito ? 'rgba(16, 185, 129, 0.18)' : 'rgba(244, 63, 94, 0.18)';
-                    checklistBtn.style.color = checklistFeito ? '#34d399' : '#fb7185';
-                }
-
-                if (card.getAttribute('data-status') !== doca.status) {
-                    atualizarCardNaTela(doca);
-                }
-            }
-        });
-
-        const livresEl = document.getElementById('stat-livres');
-        const ocupadasEl = document.getElementById('stat-ocupadas');
-        if (livresEl) livresEl.innerText = livres;
-        if (ocupadasEl) ocupadasEl.innerText = ocupadas;
-
-    } catch (err) {
-        console.error('Erro no polling:', err);
-    }
-}
-
-function atualizarCronometrosCPT() {
-    const timers = document.querySelectorAll('[id^="cpt-timer-"]');
-    
-    timers.forEach(timerEl => {
-        const numero = timerEl.id.replace('cpt-timer-', '');
-        const cptDatetimeStr = timerEl.getAttribute('data-cptdatetime');
-        if (!cptDatetimeStr || cptDatetimeStr.trim() === '') {
-            timerEl.innerText = '⏳ CPT: Não Informado';
-            return;
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'numero': self.numero,
+            'tipo': self.tipo,
+            'status': self.status,
+            'nome': self.nome or '',
+            'regiao': self.regiao or '',
+            'placa': self.placa or '',
+            'chegada': self.chegada or '',
+            'eta': self.eta or '',
+            'cpt': self.cpt or '',
+            'cpt_datetime': self.cpt_datetime or '',
+            'usuario_atribuicao': self.usuario_atribuicao or '',
+            'checklist_feito': bool(self.checklist_feito),
+            'checklist_usuario': self.checklist_usuario or '',
+            'checklist_data_hora': self.checklist_data_hora or '',
+            'checklist_obs': self.checklist_obs or '',
+            'ultima_atualizacao': self.ultima_atualizacao.strftime('%H:%M:%S') if self.ultima_atualizacao else ''
         }
 
-        const agora = new Date();
-        const alvo = new Date(cptDatetimeStr);
+class HistoricoDoca(db.Model):
+    __tablename__ = 'historico_docas'
+    id = db.Column(db.Integer, primary_key=True)
+    doca_numero = db.Column(db.Integer, nullable=False)
+    tipo = db.Column(db.String(10), nullable=False)
+    nome = db.Column(db.String(100), nullable=True, default='')
+    regiao = db.Column(db.String(100), nullable=True, default='')
+    placa = db.Column(db.String(20), nullable=True, default='')
+    chegada = db.Column(db.String(20), nullable=True, default='')
+    eta = db.Column(db.String(20), nullable=True, default='')
+    cpt = db.Column(db.String(50), nullable=True, default='')
+    cpt_datetime = db.Column(db.String(50), nullable=True, default='')
+    horario_saida = db.Column(db.String(20), nullable=True, default='')
+    usuario_liberacao = db.Column(db.String(50), nullable=True, default='')
+    usuario_atribuicao = db.Column(db.String(50), nullable=True, default='')
+    checklist_feito = db.Column(db.Boolean, default=False)
+    checklist_usuario = db.Column(db.String(50), nullable=True, default='')
+    checklist_data_hora = db.Column(db.String(50), nullable=True, default='')
+    checklist_obs = db.Column(db.String(255), nullable=True, default='')
+    data_registro = db.Column(db.DateTime, default=datetime.utcnow)
 
-        if (isNaN(alvo.getTime())) {
-            timerEl.innerText = '⏳ CPT: Inválido';
-            return;
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'doca_numero': self.doca_numero,
+            'tipo': self.tipo,
+            'nome': self.nome or '',
+            'regiao': self.regiao or '',
+            'placa': self.placa or '',
+            'chegada': self.chegada or '',
+            'eta': self.eta or '',
+            'cpt': self.cpt or '',
+            'cpt_datetime': self.cpt_datetime or '',
+            'horario_saida': self.horario_saida or '',
+            'usuario_liberacao': self.usuario_liberacao or '',
+            'usuario_atribuicao': self.usuario_atribuicao or '',
+            'checklist_feito': bool(self.checklist_feito),
+            'checklist_usuario': self.checklist_usuario or '',
+            'checklist_data_hora': self.checklist_data_hora or '',
+            'checklist_obs': self.checklist_obs or '',
+            'data_registro': self.data_registro.strftime('%d/%m/%Y %H:%M:%S') if self.data_registro else ''
         }
 
-        const diffMs = alvo - agora;
+class HistoricoEntrada(db.Model):
+    __tablename__ = 'historico_entradas'
+    id = db.Column(db.Integer, primary_key=True)
+    doca_numero = db.Column(db.Integer, nullable=False)
+    tipo = db.Column(db.String(10), nullable=False)
+    nome = db.Column(db.String(100), nullable=True, default='')
+    regiao = db.Column(db.String(100), nullable=True, default='')
+    placa = db.Column(db.String(20), nullable=True, default='')
+    chegada = db.Column(db.String(20), nullable=True, default='')
+    eta = db.Column(db.String(20), nullable=True, default='')
+    cpt = db.Column(db.String(50), nullable=True, default='')
+    cpt_datetime = db.Column(db.String(50), nullable=True, default='')
+    usuario_atribuicao = db.Column(db.String(50), nullable=True, default='')
+    checklist_feito = db.Column(db.Boolean, default=False)
+    checklist_usuario = db.Column(db.String(50), nullable=True, default='')
+    checklist_data_hora = db.Column(db.String(50), nullable=True, default='')
+    checklist_obs = db.Column(db.String(255), nullable=True, default='')
+    data_registro = db.Column(db.DateTime, default=datetime.utcnow)
 
-        if (diffMs <= 0) {
-            timerEl.innerHTML = `<span style="color: #f43f5e; font-weight: 800;">⚠️ CPT VENCIDO / EXPIRADO</span>`;
-            notificarCptExpirado(numero, cptDatetimeStr);
-            return;
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'doca_numero': self.doca_numero,
+            'tipo': self.tipo,
+            'nome': self.nome or '',
+            'regiao': self.regiao or '',
+            'placa': self.placa or '',
+            'chegada': self.chegada or '',
+            'eta': self.eta or '',
+            'cpt': self.cpt or '',
+            'cpt_datetime': self.cpt_datetime or '',
+            'usuario_atribuicao': self.usuario_atribuicao or '',
+            'checklist_feito': bool(self.checklist_feito),
+            'checklist_usuario': self.checklist_usuario or '',
+            'checklist_data_hora': self.checklist_data_hora or '',
+            'checklist_obs': self.checklist_obs or '',
+            'data_registro': self.data_registro.strftime('%d/%m/%Y %H:%M:%S') if self.data_registro else ''
         }
 
-        const horas = Math.floor(diffMs / (1000 * 60 * 60));
-        const minutos = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-        const segundos = Math.floor((diffMs % (1000 * 60)) / 1000);
+@login_manager.user_loader
+def load_user(user_id):
+    return db.session.get(User, int(user_id))
 
-        const hFormatado = String(horas).padStart(2, '0');
-        const mFormatado = String(minutos).padStart(2, '0');
-        const sFormatado = String(segundos).padStart(2, '0');
+def limpar_historicos_antigos():
+    limite = datetime.utcnow() - timedelta(days=60)
+    HistoricoDoca.query.filter(HistoricoDoca.data_registro < limite).delete()
+    HistoricoEntrada.query.filter(HistoricoEntrada.data_registro < limite).delete()
+    db.session.commit()
 
-        timerEl.innerHTML = `<span style="color: #f43f5e; font-weight: 900; letter-spacing: 1px;">⏳ RESTANTE: ${hFormatado}:${mFormatado}:${sFormatado}</span>`;
-    });
-}
-
-function atualizarCronometrosChegada() {
-    const timers = document.querySelectorAll('[id^="chegada-timer-"]');
-    
-    timers.forEach(timerEl => {
-        const numero = timerEl.id.replace('chegada-timer-', '');
-        const chegadaStr = timerEl.getAttribute('data-chegada');
-        if (!chegadaStr || chegadaStr.trim() === '' || chegadaStr.includes('NÃO')) {
-            timerEl.innerText = '⏱️ TEMPO NO PÁTIO: Não Informado';
-            return;
-        }
-
-        const match = chegadaStr.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
-        if (!match) {
-            timerEl.innerText = `⏱️ TEMPO: ${chegadaStr}`;
-            return;
-        }
-
-        const agora = new Date();
-        const chegadaHora = parseInt(match[1], 10);
-        const chegadaMinuto = parseInt(match[2], 10);
-        const chegadaSegundo = match[3] ? parseInt(match[3], 10) : 0;
-
-        const inicio = new Date();
-        inicio.setHours(chegadaHora, chegadaMinuto, chegadaSegundo, 0);
-
-        let diffMs = agora - inicio;
-        if (diffMs < 0) {
-            diffMs = 0; 
-        }
-
-        const trintaMinutosMs = 30 * 60 * 1000;
-        const checklistFeito = timerEl.getAttribute('data-checklist-feito') === 'true';
-        const placa = timerEl.getAttribute('data-placa') || '';
-
-        if (diffMs >= trintaMinutosMs && !checklistFeito) {
-            notificarChecklistSemFazer30Min(numero, placa, chegadaStr);
-        }
-
-        const horas = Math.floor(diffMs / (1000 * 60 * 60));
-        const minutos = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-        const segundos = Math.floor((diffMs % (1000 * 60)) / 1000);
-
-        const hFormatado = String(horas).padStart(2, '0');
-        const mFormatado = String(minutos).padStart(2, '0');
-        const sFormatado = String(segundos).padStart(2, '0');
-
-        timerEl.innerHTML = `<span style="color: #10b981; font-weight: 900; letter-spacing: 1px;">⏱️ TEMPO NO PÁTIO: ${hFormatado}:${mFormatado}:${sFormatado}</span>`;
-    });
-}
-
-function formatarMensagemWhatsApp(dados) {
-    const linhas = [
-        'Pátio Outbound Carregamento:',
-        '',
-        `⚪ NOME: ${dados.nome || 'NÃO INFORMADO'}`,
-
-        `⚪ REGIÃO: ${dados.regiao || 'NÃO INFORMADA'}`,
-
-        `⚪ PLACA: ${dados.placa || 'NÃO INFORMADA'}`,
-
-        `🚚 DOCA: ${dados.doca || ''}`,
-
-        `⚪ CHEGADA: ${dados.chegada || 'NÃO INFORMADA'}`,
-
-        `⚪ ETA: ${dados.eta || 'NÃO INFORMADO'}`,
-
-        `⚪ CPT: ${dados.cpt || 'NÃO INFORMADO'}`
+def init_db():
+    with app.app_context():
+        db.create_all()
         
-    ];
-    return linhas.join('\n');
-}
+        inspector = inspect(db.engine)
+        if inspector.has_table("docas"):
+            columns = [c['name'] for c in inspector.get_columns("docas")]
+            with db.engine.begin() as conn:
+                if 'nome' not in columns:
+                    conn.execute(text("ALTER TABLE docas ADD COLUMN nome VARCHAR(100) DEFAULT ''"))
+                if 'regiao' not in columns:
+                    conn.execute(text("ALTER TABLE docas ADD COLUMN regiao VARCHAR(100) DEFAULT ''"))
+                if 'chegada' not in columns:
+                    conn.execute(text("ALTER TABLE docas ADD COLUMN chegada VARCHAR(20) DEFAULT ''"))
+                if 'eta' not in columns:
+                    conn.execute(text("ALTER TABLE docas ADD COLUMN eta VARCHAR(20) DEFAULT ''"))
+                if 'cpt' not in columns:
+                    conn.execute(text("ALTER TABLE docas ADD COLUMN cpt VARCHAR(50) DEFAULT ''"))
+                if 'cpt_datetime' not in columns:
+                    conn.execute(text("ALTER TABLE docas ADD COLUMN cpt_datetime VARCHAR(50) DEFAULT ''"))
+                if 'usuario_atribuicao' not in columns:
+                    conn.execute(text("ALTER TABLE docas ADD COLUMN usuario_atribuicao VARCHAR(50) DEFAULT ''"))
+                if 'checklist_feito' not in columns:
+                    conn.execute(text("ALTER TABLE docas ADD COLUMN checklist_feito BOOLEAN DEFAULT FALSE"))
+                if 'checklist_usuario' not in columns:
+                    conn.execute(text("ALTER TABLE docas ADD COLUMN checklist_usuario VARCHAR(50) DEFAULT ''"))
+                if 'checklist_data_hora' not in columns:
+                    conn.execute(text("ALTER TABLE docas ADD COLUMN checklist_data_hora VARCHAR(50) DEFAULT ''"))
+                if 'checklist_obs' not in columns:
+                    conn.execute(text("ALTER TABLE docas ADD COLUMN checklist_obs VARCHAR(255) DEFAULT ''"))
+
+        if inspector.has_table("historico_docas"):
+            h_columns = [c['name'] for c in inspector.get_columns("historico_docas")]
+            with db.engine.begin() as conn:
+                if 'cpt_datetime' not in h_columns:
+                    conn.execute(text("ALTER TABLE historico_docas ADD COLUMN cpt_datetime VARCHAR(50) DEFAULT ''"))
+                if 'usuario_liberacao' not in h_columns:
+                    conn.execute(text("ALTER TABLE historico_docas ADD COLUMN usuario_liberacao VARCHAR(50) DEFAULT ''"))
+                if 'usuario_atribuicao' not in h_columns:
+                    conn.execute(text("ALTER TABLE historico_docas ADD COLUMN usuario_atribuicao VARCHAR(50) DEFAULT ''"))
+                if 'checklist_feito' not in h_columns:
+                    conn.execute(text("ALTER TABLE historico_docas ADD COLUMN checklist_feito BOOLEAN DEFAULT FALSE"))
+                if 'checklist_usuario' not in h_columns:
+                    conn.execute(text("ALTER TABLE historico_docas ADD COLUMN checklist_usuario VARCHAR(50) DEFAULT ''"))
+                if 'checklist_data_hora' not in h_columns:
+                    conn.execute(text("ALTER TABLE historico_docas ADD COLUMN checklist_data_hora VARCHAR(50) DEFAULT ''"))
+                if 'checklist_obs' not in h_columns:
+                    conn.execute(text("ALTER TABLE historico_docas ADD COLUMN checklist_obs VARCHAR(255) DEFAULT ''"))
+
+        if inspector.has_table("historico_entradas"):
+            e_columns = [c['name'] for c in inspector.get_columns("historico_entradas")]
+            with db.engine.begin() as conn:
+                if 'cpt_datetime' not in e_columns:
+                    conn.execute(text("ALTER TABLE historico_entradas ADD COLUMN cpt_datetime VARCHAR(50) DEFAULT ''"))
+                if 'usuario_atribuicao' not in e_columns:
+                    conn.execute(text("ALTER TABLE historico_entradas ADD COLUMN usuario_atribuicao VARCHAR(50) DEFAULT ''"))
+                if 'checklist_feito' not in e_columns:
+                    conn.execute(text("ALTER TABLE historico_entradas ADD COLUMN checklist_feito BOOLEAN DEFAULT FALSE"))
+                if 'checklist_usuario' not in e_columns:
+                    conn.execute(text("ALTER TABLE historico_entradas ADD COLUMN checklist_usuario VARCHAR(50) DEFAULT ''"))
+                if 'checklist_data_hora' not in e_columns:
+                    conn.execute(text("ALTER TABLE historico_entradas ADD COLUMN checklist_data_hora VARCHAR(50) DEFAULT ''"))
+                if 'checklist_obs' not in e_columns:
+                    conn.execute(text("ALTER TABLE historico_entradas ADD COLUMN checklist_obs VARCHAR(255) DEFAULT ''"))
+
+        admin_user = User.query.filter_by(username='admin').first()
+        if not admin_user:
+            hashed_pwd = generate_password_hash('admin')
+            admin = User(username='admin', password_hash=hashed_pwd, is_admin=True, is_approved=True)
+            db.session.add(admin)
+            db.session.commit()
+
+        if Doca.query.count() == 0:
+            for num in range(1, 41):
+                tipo_doca = 'HUB' if 1 <= num <= 16 else 'SOC'
+                doca = Doca(numero=num, tipo=tipo_doca, status='LIVRE', placa='', regiao='')
+                db.session.add(doca)
+            db.session.commit()
+
+@app.route('/')
+def index():
+    q = request.args.get('q', '').strip().upper()
+    query = Doca.query
+    
+    if q:
+        query = query.filter(
+            or_(
+                Doca.placa.ilike(f'%{q}%'),
+                Doca.nome.ilike(f'%{q}%'),
+                Doca.regiao.ilike(f'%{q}%'),
+                Doca.cpt.ilike(f'%{q}%'),
+                Doca.numero.cast(db.String).ilike(f'%{q}%')
+            )
+        )
+    
+    docas = query.order_by(Doca.numero.asc()).all()
+    todas_docas = Doca.query.all()
+    hub_count = sum(1 for d in todas_docas if d.tipo == 'HUB')
+    soc_count = sum(1 for d in todas_docas if d.tipo == 'SOC')
+    ocupadas_count = sum(1 for d in todas_docas if d.status == 'OCUPADA')
+    livres_count = sum(1 for d in todas_docas if d.status == 'LIVRE')
+    
+    return render_template(
+        'index.html', 
+        docas=docas, 
+        total=len(todas_docas),
+        hub_count=hub_count,
+        soc_count=soc_count,
+        ocupadas=ocupadas_count,
+        livres=livres_count,
+        termo_busca=q
+    )
+
+@app.route('/checklist')
+@login_required
+def checklist_page():
+    docas_ocupadas = Doca.query.filter_by(status='OCUPADA').order_by(Doca.numero.asc()).all()
+    historico_recente = HistoricoDoca.query.order_by(HistoricoDoca.data_registro.desc()).limit(100).all()
+
+    itens = []
+    for d in docas_ocupadas:
+        itens.append({
+            'origem': 'NO PÁTIO (OCUPADA)',
+            'doca_numero': d.numero,
+            'tipo': d.tipo,
+            'placa': d.placa or '',
+            'nome': d.nome or '',
+            'regiao': d.regiao or '',
+            'chegada': d.chegada or '',
+            'eta': d.eta or '',
+            'cpt': d.cpt or '',
+            'usuario_atribuicao': d.usuario_atribuicao or '',
+            'checklist_feito': bool(d.checklist_feito),
+            'checklist_usuario': d.checklist_usuario or '',
+            'checklist_data_hora': d.checklist_data_hora or '',
+            'checklist_obs': d.checklist_obs or ''
+        })
+
+    for h in historico_recente:
+        itens.append({
+            'origem': 'HISTÓRICO / SAÍDA',
+            'doca_numero': h.doca_numero,
+            'tipo': h.tipo,
+            'placa': h.placa or '',
+            'nome': h.nome or '',
+            'regiao': h.regiao or '',
+            'chegada': h.chegada or '',
+            'eta': h.eta or '',
+            'cpt': h.cpt or '',
+            'usuario_atribuicao': h.usuario_atribuicao or '',
+            'checklist_feito': bool(h.checklist_feito),
+            'checklist_usuario': h.checklist_usuario or '',
+            'checklist_data_hora': h.checklist_data_hora or '',
+            'checklist_obs': h.checklist_obs or ''
+        })
+
+    return render_template('checklist.html', itens=itens)
+
+@app.route('/api/doca/<int:numero>/checklist', methods=['POST'])
+@login_required
+def api_toggle_checklist(numero):
+    doca = Doca.query.filter_by(numero=numero).first_or_404()
+    data = request.get_json() or {}
+    feito = bool(data.get('checklist_feito', True))
+    obs = str(data.get('checklist_obs', '') or '').strip()[:255]
+    agora_br = (datetime.utcnow() - timedelta(hours=3)).strftime('%d/%m/%Y %H:%M:%S')
+
+    if feito:
+        doca.checklist_feito = True
+        doca.checklist_usuario = current_user.username
+        doca.checklist_data_hora = agora_br
+        doca.checklist_obs = obs
+    else:
+        doca.checklist_feito = False
+        doca.checklist_usuario = ''
+        doca.checklist_data_hora = ''
+        doca.checklist_obs = ''
+
+    entrada_recente = HistoricoEntrada.query.filter_by(
+        doca_numero=doca.numero,
+        placa=doca.placa
+    ).order_by(HistoricoEntrada.id.desc()).first()
+    if entrada_recente:
+        entrada_recente.checklist_feito = doca.checklist_feito
+        entrada_recente.checklist_usuario = doca.checklist_usuario
+        entrada_recente.checklist_data_hora = doca.checklist_data_hora
+        entrada_recente.checklist_obs = doca.checklist_obs
+
+    db.session.commit()
+    return jsonify({'success': True, 'doca': doca.to_dict()})
+
+@app.route('/graficos')
+@login_required
+def graficos_page():
+    return render_template('graficos.html')
+
+@app.route('/api/graficos/dados')
+@login_required
+def api_graficos_dados():
+    periodo = request.args.get('periodo', 'dia')
+    turno = request.args.get('turno', 'geral')
+    agora = datetime.utcnow() - timedelta(hours=3)
+
+    if periodo == 'semana':
+        inicio = agora - timedelta(days=7)
+    elif periodo == 'mes':
+        inicio = agora - timedelta(days=30)
+    else:
+        inicio = datetime(agora.year, agora.month, agora.day, 0, 0, 0)
+
+    registros = HistoricoDoca.query.filter(
+        HistoricoDoca.data_registro >= inicio
+    ).all()
+
+    docas_atuais_ocupadas = Doca.query.filter_by(status='OCUPADA').all()
+
+    hub_count = sum(1 for r in registros if r.tipo == 'HUB')
+    soc_count = sum(1 for r in registros if r.tipo == 'SOC')
+
+    cpt_no_prazo = 0
+    cpt_fora_prazo = 0
+    tempos_hub = []
+    tempos_soc = []
+    
+    pico_horas = {i: 0 for i in range(24)}
+    operadores_atribuicao = {}
+    operadores_liberacao = {}
+    regioes = {}
+
+    checklist_feitos = 0
+    checklist_pendentes = 0
+    checklist_por_usuario = {}
+    veiculos_checklist_feitos = []
+
+    for r in registros:
+        if r.checklist_feito:
+            checklist_feitos += 1
+            op_chk = r.checklist_usuario if r.checklist_usuario else (r.usuario_atribuicao or 'SISTEMA')
+            checklist_por_usuario[op_chk] = checklist_por_usuario.get(op_chk, 0) + 1
+            veiculos_checklist_feitos.append(
+                f"{r.placa or 'S/P'} - {r.nome or 'S/N'} (Doca {r.doca_numero} | {op_chk})"
+            )
+        else:
+            checklist_pendentes += 1
+
+        if r.cpt_datetime and r.horario_saida:
+            try:
+                alvo_cpt = datetime.fromisoformat(r.cpt_datetime)
+                data_reg = r.data_registro - timedelta(hours=3)
+                partes_saida = r.horario_saida.split(':')
+                dt_saida = datetime(data_reg.year, data_reg.month, data_reg.day, int(partes_saida[0]), int(partes_saida[1]), int(partes_saida[2]))
+                if dt_saida > alvo_cpt:
+                    cpt_fora_prazo += 1
+                else:
+                    cpt_no_prazo += 1
+            except Exception:
+                cpt_no_prazo += 1
+        else:
+            cpt_no_prazo += 1
+
+        if r.chegada and r.horario_saida:
+            try:
+                p_ent = [int(x) for x in r.chegada.split(':')]
+                p_sai = [int(x) for x in r.horario_saida.split(':')]
+                min_ent = p_ent[0] * 60 + p_ent[1]
+                min_sai = p_sai[0] * 60 + p_sai[1]
+                if min_sai < min_ent:
+                    min_sai += 24 * 60
+                duracao = min_sai - min_ent
+                if duracao >= 0:
+                    if r.tipo == 'HUB':
+                        tempos_hub.append(duracao)
+                    else:
+                        tempos_soc.append(duracao)
+                    
+                    hora_chegada = p_ent[0]
+                    minuto_chegada = p_ent[1]
+                    total_min_chegada = hora_chegada * 60 + minuto_chegada
+                    
+                    incluir_no_turno = False
+                    if turno == 'geral':
+                        incluir_no_turno = True
+                    elif turno == 't1':
+                        if 325 <= total_min_chegada < 840:
+                            incluir_no_turno = True
+                    elif turno == 't2':
+                        if 840 <= total_min_chegada < 1260:
+                            incluir_no_turno = True
+                    elif turno == 't3':
+                        if total_min_chegada >= 1260 or total_min_chegada < 355:
+                            incluir_no_turno = True
+
+                    if incluir_no_turno:
+                        pico_horas[hora_chegada] += 1
+            except Exception:
+                pass
+
+        op_atrib = r.usuario_atribuicao if r.usuario_atribuicao else 'SISTEMA'
+        operadores_atribuicao[op_atrib] = operadores_atribuicao.get(op_atrib, 0) + 1
+
+        op_lib = r.usuario_liberacao if r.usuario_liberacao else 'SISTEMA'
+        operadores_liberacao[op_lib] = operadores_liberacao.get(op_lib, 0) + 1
+
+        reg = r.regiao if r.regiao else 'NÃO INFORMADA'
+        regioes[reg] = regioes.get(reg, 0) + 1
+
+    for d in docas_atuais_ocupadas:
+        if d.checklist_feito:
+            checklist_feitos += 1
+            op_chk = d.checklist_usuario if d.checklist_usuario else (d.usuario_atribuicao or 'SISTEMA')
+            checklist_por_usuario[op_chk] = checklist_por_usuario.get(op_chk, 0) + 1
+            veiculos_checklist_feitos.append(
+                f"{d.placa or 'S/P'} - {d.nome or 'S/N'} (Doca {d.numero} | {op_chk})"
+            )
+        else:
+            checklist_pendentes += 1
+
+    todos_tempos = tempos_hub + tempos_soc
+    avg_tempo = sum(todos_tempos) / len(todos_tempos) if todos_tempos else 0
+    avg_hub = sum(tempos_hub) / len(tempos_hub) if tempos_hub else 0
+    avg_soc = sum(tempos_soc) / len(tempos_soc) if tempos_soc else 0
+
+    rapido = sum(1 for t in todos_tempos if t <= 60)
+    medio = sum(1 for t in todos_tempos if 60 < t <= 120)
+    lento = sum(1 for t in todos_tempos if t > 120)
+
+    top_regioes = sorted(regioes.items(), key=lambda x: x[1], reverse=True)
+    top_chk_usuarios = sorted(checklist_por_usuario.items(), key=lambda x: x[1], reverse=True)
+
+    return jsonify({
+        'total_operacoes': len(registros),
+        'tempo_medio_minutos': round(avg_tempo, 1),
+        'setores': {'HUB': hub_count, 'SOC': soc_count},
+        'cpt': {'no_prazo': cpt_no_prazo, 'fora_prazo': cpt_fora_prazo},
+        'velocidade': {'ate_1h': rapido, 'de_1h_2h': medio, 'acima_2h': lento},
+        'tempo_setor': {'HUB': round(avg_hub, 1), 'SOC': round(avg_soc, 1)},
+        'pico_horas': {
+            'labels': [f"{h:02d}:00" for h in range(24)],
+            'data': [pico_horas[h] for h in range(24)]
+        },
+        'atribuicoes': {
+            'labels': list(operadores_atribuicao.keys()),
+            'data': list(operadores_atribuicao.values())
+        },
+        'operadores': {
+            'labels': list(operadores_liberacao.keys()),
+            'data': list(operadores_liberacao.values())
+        },
+        'regioes': {
+            'labels': [item[0] for item in top_regioes],
+            'data': [item[1] for item in top_regioes]
+        },
+        'checklist': {
+            'feitos': checklist_feitos,
+            'pendentes': checklist_pendentes,
+            'usuarios_labels': [item[0] for item in top_chk_usuarios],
+            'usuarios_data': [item[1] for item in top_chk_usuarios],
+            'veiculos_feitos': veiculos_checklist_feitos
+        }
+    })
+
+@app.route('/historico-entradas')
+@login_required
+def historico_entradas_page():
+    limpar_historicos_antigos()
+    data_sel = request.args.get('data', (datetime.utcnow() - timedelta(hours=3)).strftime('%Y-%m-%d'))
+    
+    try:
+        data_obj = datetime.strptime(data_sel, '%Y-%m-%d')
+    except ValueError:
+        data_obj = datetime.utcnow() - timedelta(hours=3)
+
+    inicio_dia = datetime(data_obj.year, data_obj.month, data_obj.day, 0, 0, 0) + timedelta(hours=3)
+    fim_dia = datetime(data_obj.year, data_obj.month, data_obj.day, 23, 59, 59) + timedelta(hours=3)
+
+    registros = HistoricoEntrada.query.filter(
+        HistoricoEntrada.data_registro >= inicio_dia,
+        HistoricoEntrada.data_registro <= fim_dia
+    ).order_by(HistoricoEntrada.data_registro.desc()).all()
+
+    return render_template('historico_entradas.html', registros=registros, data_selecionada=data_sel)
+
+@app.route('/historico-entradas/exportar/<formato>')
+@login_required
+def exportar_historico_entradas(formato):
+    limpar_historicos_antigos()
+    data_sel = request.args.get('data', (datetime.utcnow() - timedelta(hours=3)).strftime('%Y-%m-%d'))
+    try:
+        data_obj = datetime.strptime(data_sel, '%Y-%m-%d')
+    except ValueError:
+        data_obj = datetime.utcnow() - timedelta(hours=3)
+
+    inicio_dia = datetime(data_obj.year, data_obj.month, data_obj.day, 0, 0, 0) + timedelta(hours=3)
+    fim_dia = datetime(data_obj.year, data_obj.month, data_obj.day, 23, 59, 59) + timedelta(hours=3)
+
+    registros = HistoricoEntrada.query.filter(
+        HistoricoEntrada.data_registro >= inicio_dia,
+        HistoricoEntrada.data_registro <= fim_dia
+    ).order_by(HistoricoEntrada.data_registro.asc()).all()
+
+    filename = f"historico_entradas_{data_sel}.{formato}"
+
+    if formato == 'txt':
+        conteudo = f"=== HISTÓRICO DE ENTRADAS DE DOCAS - {data_sel} ===\n\n"
+        for r in registros:
+            conteudo += (
+                f"DOCA: {r.doca_numero} ({r.tipo})\n"
+                f"PLACA: {r.placa or 'NÃO INFORMADA'} | NOME: {r.nome or 'NÃO INFORMADO'}\n"
+                f"REGIÃO: {r.regiao or 'NÃO INFORMADA'} | CPT: {r.cpt or 'NÃO INFORMADO'}\n"
+                f"CHEGADA: {r.chegada or 'NÃO INFORMADA'} | ETA: {r.eta or 'NÃO INFORMADO'}\n"
+                f"ATRIBUÍDO POR: {r.usuario_atribuicao or 'N/A'}\n"
+                f"CHECKLIST: {'FEITO' if r.checklist_feito else 'PENDENTE'}\n"
+                f"REGISTRADO EM: {r.data_registro.strftime('%d/%m/%Y %H:%M:%S')}\n"
+                f"--------------------------------------------------\n"
+            )
+        buffer = BytesIO()
+        buffer.write(conteudo.encode('utf-8'))
+        buffer.seek(0)
+        return send_file(buffer, as_attachment=True, download_name=filename, mimetype='text/plain')
+
+    elif formato == 'pdf':
+        from reportlab.lib.pagesizes import letter
+        from reportlab.pdfgen import canvas
+
+        buffer = BytesIO()
+        p = canvas.Canvas(buffer, pagesize=letter)
+        y = 750
+        p.setFont("Helvetica-Bold", 14)
+        p.drawString(50, y, f"Relatorio de Historico de Entradas - {data_sel}")
+        y -= 30
+        p.setFont("Helvetica", 10)
+
+        for r in registros:
+            if y < 80:
+                p.showPage()
+                y = 750
+                p.setFont("Helvetica", 10)
+
+            texto = f"Doca {r.doca_numero} ({r.tipo}) - Placa: {r.placa or 'N/A'} | Atrib por: {r.usuario_atribuicao or 'N/A'}"
+            detalhe = f"Regiao: {r.regiao or 'N/A'} | Chegada: {r.chegada or 'N/A'} | CPT: {r.cpt or 'N/A'}"
+            
+            p.drawString(50, y, texto)
+            y -= 15
+            p.drawString(50, y, detalhe)
+            y -= 20
+
+        p.showPage()
+        p.save()
+        buffer.seek(0)
+        return send_file(buffer, as_attachment=True, download_name=filename, mimetype='application/pdf')
+
+    return redirect(url_for('historico_entradas_page'))
+
+@app.route('/historico')
+@login_required
+def historico_page():
+    limpar_historicos_antigos()
+    data_sel = request.args.get('data', (datetime.utcnow() - timedelta(hours=3)).strftime('%Y-%m-%d'))
+    
+    try:
+        data_obj = datetime.strptime(data_sel, '%Y-%m-%d')
+    except ValueError:
+        data_obj = datetime.utcnow() - timedelta(hours=3)
+
+    inicio_dia = datetime(data_obj.year, data_obj.month, data_obj.day, 0, 0, 0) + timedelta(hours=3)
+    fim_dia = datetime(data_obj.year, data_obj.month, data_obj.day, 23, 59, 59) + timedelta(hours=3)
+
+    registros = HistoricoDoca.query.filter(
+        HistoricoDoca.data_registro >= inicio_dia,
+        HistoricoDoca.data_registro <= fim_dia
+    ).order_by(HistoricoDoca.data_registro.desc()).all()
+
+    return render_template('historico.html', registros=registros, data_selecionada=data_sel)
+
+@app.route('/historico/exportar/<formato>')
+@login_required
+def exportar_historico(formato):
+    limpar_historicos_antigos()
+    data_sel = request.args.get('data', (datetime.utcnow() - timedelta(hours=3)).strftime('%Y-%m-%d'))
+    try:
+        data_obj = datetime.strptime(data_sel, '%Y-%m-%d')
+    except ValueError:
+        data_obj = datetime.utcnow() - timedelta(hours=3)
+
+    inicio_dia = datetime(data_obj.year, data_obj.month, data_obj.day, 0, 0, 0) + timedelta(hours=3)
+    fim_dia = datetime(data_obj.year, data_obj.month, data_obj.day, 23, 59, 59) + timedelta(hours=3)
+
+    registros = HistoricoDoca.query.filter(
+        HistoricoDoca.data_registro >= inicio_dia,
+        HistoricoDoca.data_registro <= fim_dia
+    ).order_by(HistoricoDoca.data_registro.asc()).all()
+
+    filename = f"historico_saidas_{data_sel}.{formato}"
+
+    if formato == 'txt':
+        conteudo = f"=== HISTÓRICO DE SAÍDAS DE DOCAS - {data_sel} ===\n\n"
+        for r in registros:
+            conteudo += (
+                f"DOCA: {r.doca_numero} ({r.tipo})\n"
+                f"PLACA: {r.placa or 'NÃO INFORMADA'} | NOME: {r.nome or 'NÃO INFORMADO'}\n"
+                f"REGIÃO: {r.regiao or 'NÃO INFORMADA'} | CPT: {r.cpt or 'NÃO INFORMADO'}\n"
+                f"CHEGADA: {r.chegada or 'NÃO INFORMADA'} | ETA: {r.eta or 'NÃO INFORMADO'}\n"
+                f"SAÍDA: {r.horario_saida or 'NÃO INFORMADO'} | LIBERADO POR: {r.usuario_liberacao or 'N/A'}\n"
+                f"CHECKLIST: {'FEITO POR ' + (r.checklist_usuario or 'N/A') if r.checklist_feito else 'NÃO FEITO'}\n"
+                f"REGISTRADO EM: {r.data_registro.strftime('%d/%m/%Y %H:%M:%S')}\n"
+                f"--------------------------------------------------\n"
+            )
+        buffer = BytesIO()
+        buffer.write(conteudo.encode('utf-8'))
+        buffer.seek(0)
+        return send_file(buffer, as_attachment=True, download_name=filename, mimetype='text/plain')
+
+    elif formato == 'pdf':
+        from reportlab.lib.pagesizes import letter
+        from reportlab.pdfgen import canvas
+
+        buffer = BytesIO()
+        p = canvas.Canvas(buffer, pagesize=letter)
+        y = 750
+        p.setFont("Helvetica-Bold", 14)
+        p.drawString(50, y, f"Relatorio de Historico de Saidas - {data_sel}")
+        y -= 30
+        p.setFont("Helvetica", 10)
+
+        for r in registros:
+            if y < 80:
+                p.showPage()
+                y = 750
+                p.setFont("Helvetica", 10)
+
+            texto = f"Doca {r.doca_numero} ({r.tipo}) - Placa: {r.placa or 'N/A'} | Saida: {r.horario_saida or 'N/A'}"
+            detalhe = f"Regiao: {r.regiao or 'N/A'} | Lib por: {r.usuario_liberacao or 'N/A'} | CPT: {r.cpt or 'N/A'}"
+            
+            p.drawString(50, y, texto)
+            y -= 15
+            p.drawString(50, y, detalhe)
+            y -= 20
+
+        p.showPage()
+        p.save()
+        buffer.seek(0)
+        return send_file(buffer, as_attachment=True, download_name=filename, mimetype='application/pdf')
+
+    return redirect(url_for('historico_page'))
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+        
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        user = User.query.filter_by(username=username).first()
+        
+        if user and check_password_hash(user.password_hash, password):
+            if not user.is_approved:
+                flash('Sua conta está aguardando aprovação do administrador.', 'warning')
+                return render_template('login.html')
+                
+            login_user(user)
+            flash('Autenticado com sucesso!', 'success')
+            return redirect(url_for('index'))
+        else:
+            flash('Usuário ou senha inválidos.', 'danger')
+            
+    return render_template('login.html')
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+        
+    if request.method == 'POST':
+        username = request.form.get('username').strip()
+        password = request.form.get('password')
+        
+        if User.query.filter_by(username=username).first():
+            flash('Este nome de usuário já está cadastrado.', 'danger')
+            return render_template('register.html')
+            
+        hashed_pwd = generate_password_hash(password)
+        novo_usuario = User(username=username, password_hash=hashed_pwd, is_admin=False, is_approved=False)
+        db.session.add(novo_usuario)
+        db.session.commit()
+        
+        flash('Cadastro realizado com sucesso! Aguarde a aprovação do Administrador para acessar.', 'info')
+        return redirect(url_for('login'))
+        
+    return render_template('register.html')
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    flash('Sessão encerrada.', 'info')
+    return redirect(url_for('index'))
+
+@app.route('/admin/users')
+@login_required
+def admin_users():
+    if not current_user.is_admin:
+        flash('Acesso negado. Apenas administradores podem acessar esta página.', 'danger')
+        return redirect(url_for('index'))
+        
+    users = User.query.order_by(User.id.asc()).all()
+    return render_template('admin_users.html', users=users)
+
+@app.route('/admin/user/<int:user_id>/toggle-approval', methods=['POST'])
+@login_required
+def toggle_user_approval(user_id):
+    if not current_user.is_admin:
+        return jsonify({'error': 'Não autorizado'}), 403
+        
+    user = User.query.get_or_404(user_id)
+    if user.id == current_user.id:
+        flash('Você não pode alterar seu próprio status.', 'warning')
+        return redirect(url_for('admin_users'))
+        
+    user.is_approved = not user.is_approved
+    db.session.commit()
+    flash(f'Status de aprovação de {user.username} alterado.', 'success')
+    return redirect(url_for('admin_users'))
+
+@app.route('/admin/user/<int:user_id>/toggle-admin', methods=['POST'])
+@login_required
+def toggle_user_admin(user_id):
+    if not current_user.is_admin:
+        return jsonify({'error': 'Não autorizado'}), 403
+        
+    user = User.query.get_or_404(user_id)
+    if user.id == current_user.id:
+        flash('Você não pode alterar seus próprios privilégios de admin.', 'warning')
+        return redirect(url_for('admin_users'))
+        
+    user.is_admin = not user.is_admin
+    db.session.commit()
+    flash(f'Permissões de Admin de {user.username} alteradas.', 'success')
+    return redirect(url_for('admin_users'))
+
+@app.route('/api/docas', methods=['GET'])
+def api_get_docas():
+    docas = Doca.query.order_by(Doca.numero.asc()).all()
+    return jsonify([d.to_dict() for d in docas])
+
+@app.route('/api/doca/<int:numero>/update', methods=['POST'])
+@login_required
+def api_update_doca(numero):
+    doca = Doca.query.filter_by(numero=numero).first_or_404()
+    data = request.get_json() or {}
+    
+    novo_status = data.get('status')
+    Acao = data.get('acao', 'status')
+
+    if Acao == 'editar' and doca.status == 'OCUPADA':
+        val_nome = data.get('nome', '')
+        val_regiao = data.get('regiao', '')
+        val_placa = data.get('placa', '')
+        val_chegada = data.get('chegada', '')
+        val_eta = data.get('eta', '')
+        val_cpt = data.get('cpt', '')
+        val_cpt_datetime = data.get('cpt_datetime', '')
+
+        doca.nome = val_nome.strip().upper() if isinstance(val_nome, str) else str(val_nome).strip().upper()
+        doca.regiao = val_regiao.strip().upper() if isinstance(val_regiao, str) else str(val_regiao).strip().upper()
+        doca.placa = val_placa.strip().upper() if isinstance(val_placa, str) else str(val_placa).strip().upper()
+        doca.chegada = val_chegada.strip() if isinstance(val_chegada, str) else str(val_chegada).strip()
+        doca.eta = val_eta.strip() if isinstance(val_eta, str) else str(val_eta).strip()
+        doca.cpt = val_cpt.strip().upper() if isinstance(val_cpt, str) else str(val_cpt).strip().upper()
+        doca.cpt_datetime = val_cpt_datetime.strip() if isinstance(val_cpt_datetime, str) else str(val_cpt_datetime).strip()
+
+    elif novo_status in ['LIVRE', 'OCUPADA']:
+        if novo_status == 'LIVRE' and doca.status == 'OCUPADA':
+            horario_saida_agora = (datetime.utcnow() - timedelta(hours=3)).strftime('%H:%M:%S')
+            hist = HistoricoDoca(
+                doca_numero=doca.numero,
+                tipo=doca.tipo,
+                nome=doca.nome,
+                regiao=doca.regiao,
+                placa=doca.placa,
+                chegada=doca.chegada,
+                eta=doca.eta,
+                cpt=doca.cpt,
+                cpt_datetime=doca.cpt_datetime,
+                horario_saida=horario_saida_agora,
+                usuario_liberacao=current_user.username,
+                usuario_atribuicao=doca.usuario_atribuicao,
+                checklist_feito=bool(doca.checklist_feito),
+                checklist_usuario=doca.checklist_usuario or '',
+                checklist_data_hora=doca.checklist_data_hora or '',
+                checklist_obs=doca.checklist_obs or '',
+                data_registro=datetime.utcnow()
+            )
+            db.session.add(hist)
+
+            doca.nome = ''
+            doca.regiao = ''
+            doca.placa = ''
+            doca.chegada = ''
+            doca.eta = ''
+            doca.cpt = ''
+            doca.cpt_datetime = ''
+            doca.usuario_atribuicao = ''
+            doca.checklist_feito = False
+            doca.checklist_usuario = ''
+            doca.checklist_data_hora = ''
+            doca.checklist_obs = ''
+
+        elif novo_status == 'OCUPADA':
+            val_nome = data.get('nome', '')
+            val_regiao = data.get('regiao', '')
+            val_placa = data.get('placa', '')
+            val_chegada = data.get('chegada', '')
+            val_eta = data.get('eta', '')
+            val_cpt = data.get('cpt', '')
+            val_cpt_datetime = data.get('cpt_datetime', '')
+
+            doca.nome = val_nome.strip().upper() if isinstance(val_nome, str) else str(val_nome).strip().upper()
+            doca.regiao = val_regiao.strip().upper() if isinstance(val_regiao, str) else str(val_regiao).strip().upper()
+            doca.placa = val_placa.strip().upper() if isinstance(val_placa, str) else str(val_placa).strip().upper()
+            doca.chegada = val_chegada.strip() if isinstance(val_chegada, str) else str(val_chegada).strip()
+            doca.eta = val_eta.strip() if isinstance(val_eta, str) else str(val_eta).strip()
+            doca.cpt = val_cpt.strip().upper() if isinstance(val_cpt, str) else str(val_cpt).strip().upper()
+            doca.cpt_datetime = val_cpt_datetime.strip() if isinstance(val_cpt_datetime, str) else str(val_cpt_datetime).strip()
+            
+            usuario_atual = current_user.username
+            doca.usuario_atribuicao = usuario_atual
+            doca.checklist_feito = False
+            doca.checklist_usuario = ''
+            doca.checklist_data_hora = ''
+            doca.checklist_obs = ''
+
+            hist_entrada = HistoricoEntrada(
+                doca_numero=doca.numero,
+                tipo=doca.tipo,
+                nome=doca.nome,
+                regiao=doca.regiao,
+                placa=doca.placa,
+                chegada=doca.chegada,
+                eta=doca.eta,
+                cpt=doca.cpt,
+                cpt_datetime=doca.cpt_datetime,
+                usuario_atribuicao=usuario_atual,
+                checklist_feito=False,
+                checklist_usuario='',
+                checklist_data_hora='',
+                checklist_obs='',
+                data_registro=datetime.utcnow()
+            )
+            db.session.add(hist_entrada)
+
+        doca.status = novo_status
+
+    db.session.commit()
+    return jsonify({'success': True, 'doca': doca.to_dict()})
+
+init_db()
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000, debug=True)
