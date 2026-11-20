@@ -340,7 +340,7 @@ def api_graficos_dados():
     medio = sum(1 for t in todos_tempos if 60 < t <= 120)
     lento = sum(1 for t in todos_tempos if t > 120)
 
-    top_regioes = sorted(regioes.items(), key=lambda x: x[1], reverse=True)[:5]
+    top_regioes = sorted(regioes.items(), key=lambda x: x[1], reverse=True)
 
     return jsonify({
         'total_operacoes': len(registros),
