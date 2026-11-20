@@ -85,6 +85,20 @@
         background: rgba(56, 189, 248, 0.05);
     }
 
+    .chk-square-box {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .chk-square-input {
+        width: 18px;
+        height: 18px;
+        accent-color: #10b981;
+        cursor: pointer;
+        border-radius: 4px;
+    }
+
     .badge-ok {
         display: inline-flex;
         align-items: center;
@@ -144,6 +158,7 @@
     <table class="checklist-table" id="tabelaChecklist">
         <thead>
             <tr>
+                <th>Check</th>
                 <th>Status</th>
                 <th>Origem / Doca</th>
                 <th>Veículo Cadastrado (Placa / Nome)</th>
@@ -157,6 +172,17 @@
         <tbody>
             {% for item in itens %}
             <tr data-status-checklist="{{ 'feito' if item.checklist_feito else 'pendente' }}">
+                <td>
+                    <div class="chk-square-box">
+                        <input
+                            type="checkbox"
+                            class="chk-square-input js-toggle-checklist"
+                            data-doca="{{ item.doca_numero }}"
+                            {% if item.checklist_feito %}checked{% endif %}
+                            {% if 'NO PÁTIO' not in item.origem %}disabled title="Registro de histórico/saída"{% endif %}
+                        >
+                    </div>
+                </td>
                 <td>
                     {% if item.checklist_feito %}
                         <span class="badge-ok">✅ FEITO</span>
@@ -201,7 +227,7 @@
             </tr>
             {% else %}
             <tr>
-                <td colspan="8" style="text-align: center; color: #94a3b8; padding: 24px;">
+                <td colspan="9" style="text-align: center; color: #94a3b8; padding: 24px;">
                     Nenhum registro encontrado para exibir.
                 </td>
             </tr>
@@ -229,6 +255,32 @@ document.addEventListener('DOMContentLoaded', () => {
                     tr.style.display = 'none';
                 }
             });
+        });
+    });
+
+    document.querySelectorAll('.js-toggle-checklist').forEach(chk => {
+        chk.addEventListener('change', async () => {
+            const docaNum = chk.getAttribute('data-doca');
+            const marcado = chk.checked;
+            chk.disabled = true;
+
+            try {
+                const resp = await fetch(`/api/doca/${docaNum}/checklist`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ checklist_feito: marcado })
+                });
+                const data = await resp.json();
+                if (!resp.ok || !data.success) {
+                    chk.checked = !marcado;
+                } else {
+                    window.location.reload();
+                }
+            } catch (e) {
+                chk.checked = !marcado;
+            } finally {
+                chk.disabled = false;
+            }
         });
     });
 });
