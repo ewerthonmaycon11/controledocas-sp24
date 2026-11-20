@@ -1,3 +1,6 @@
+let pasteTargetDoca = null;
+let pasteTargetModo = 'input';
+
 document.addEventListener('DOMContentLoaded', () => {
     const openSidebarBtn = document.getElementById('open-sidebar');
     const closeSidebarBtn = document.getElementById('close-sidebar');
@@ -9,6 +12,47 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (closeSidebarBtn && sidebar) {
         closeSidebarBtn.addEventListener('click', () => sidebar.classList.remove('active'));
+    }
+
+    // Eventos do Modal de Colar Texto
+    const pasteOverlay = document.getElementById('paste-modal-overlay');
+    const pasteTextarea = document.getElementById('paste-modal-textarea');
+    const applyPasteBtn = document.getElementById('apply-paste-modal');
+    const closePasteBtn = document.getElementById('close-paste-modal');
+    const cancelPasteBtn = document.getElementById('cancel-paste-modal');
+
+    if (closePasteBtn) closePasteBtn.addEventListener('click', fecharModalColar);
+    if (cancelPasteBtn) cancelPasteBtn.addEventListener('click', fecharModalColar);
+    if (pasteOverlay) {
+        pasteOverlay.addEventListener('click', (e) => {
+            if (e.target === pasteOverlay) fecharModalColar();
+        });
+    }
+
+    if (applyPasteBtn && pasteTextarea) {
+        applyPasteBtn.addEventListener('click', () => {
+            const texto = pasteTextarea.value;
+            if (!texto.trim()) {
+                alert('Cole o texto antes de preencher os campos.');
+                pasteTextarea.focus();
+                return;
+            }
+            aplicarTextoNosCampos(pasteTargetDoca, pasteTargetModo, texto);
+            fecharModalColar();
+        });
+    }
+
+    // Preenche automaticamente assim que o usuário cola (Ctrl+V / Colar) dentro da caixa
+    if (pasteTextarea) {
+        pasteTextarea.addEventListener('paste', () => {
+            setTimeout(() => {
+                const texto = pasteTextarea.value;
+                if (texto.trim() && pasteTargetDoca) {
+                    aplicarTextoNosCampos(pasteTargetDoca, pasteTargetModo, texto);
+                    fecharModalColar();
+                }
+            }, 50);
+        });
     }
 
     // Clique nos cards para alternar visualização ou abrir edição
@@ -94,8 +138,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Eventos para Botões de Ação, Edição, Salvamento e WhatsApp
-    document.body.addEventListener('click', (e) => {
+    // Eventos para Botões de Ação, Edição, Salvamento, WhatsApp e Colar
+    document.body.addEventListener('click', async (e) => {
         const shareBtn = e.target.closest('.btn-share-whatsapp');
         if (shareBtn) {
             const dados = {
@@ -111,6 +155,22 @@ document.addEventListener('DOMContentLoaded', () => {
             const texto = formatarMensagemWhatsApp(dados);
             const url = `https://wa.me/?text=${encodeURIComponent(texto)}`;
             window.open(url, '_blank', 'noopener,noreferrer');
+            return;
+        }
+
+        const pasteBtn = e.target.closest('.btn-paste-data');
+        if (pasteBtn) {
+            const numero = pasteBtn.getAttribute('data-numero');
+            const modo = pasteBtn.getAttribute('data-modo') || 'input';
+
+            if (modo === 'edit') {
+                abrirFormularioEdicao(numero);
+            } else {
+                const form = document.getElementById(`form-${numero}`);
+                if (form) form.style.display = 'flex';
+            }
+
+            abrirModalColar(numero, modo);
             return;
         }
 
@@ -148,6 +208,151 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 1000);
 });
 
+async function abrirModalColar(numero, modo) {
+    pasteTargetDoca = numero;
+    pasteTargetModo = modo;
+
+    const overlay = document.getElementById('paste-modal-overlay');
+    const textarea = document.getElementById('paste-modal-textarea');
+    const docaNumSpan = document.getElementById('paste-modal-doca-num');
+
+    if (docaNumSpan) docaNumSpan.innerText = numero;
+    if (textarea) textarea.value = '';
+
+    // Tenta ler automaticamente da área de transferência se o navegador permitir
+    if (navigator.clipboard && navigator.clipboard.readText) {
+        try {
+            const textoCopiado = await navigator.clipboard.readText();
+            if (textoCopiado && textoCopiado.trim()) {
+                aplicarTextoNosCampos(numero, modo, textoCopiado);
+                return;
+            }
+        } catch (err) {
+            // Se o navegador bloquear leitura automática, abre o modal para colar manualmente
+        }
+    }
+
+    if (overlay) {
+        overlay.style.display = 'flex';
+        if (textarea) {
+            setTimeout(() => textarea.focus(), 50);
+        }
+    }
+}
+
+function fecharModalColar() {
+    const overlay = document.getElementById('paste-modal-overlay');
+    if (overlay) overlay.style.display = 'none';
+}
+
+function interpretarTextoColado(texto) {
+    const resultado = {
+        nome: '',
+        regiao: '',
+        placa: '',
+        chegada: '',
+        eta: '',
+        cptStr: '',
+        cptDatetime: ''
+    };
+
+    const linhas = texto.split(/\r?\n/);
+
+    linhas.forEach((linhaOriginal) => {
+        // Remove emojis e símbolos comuns no início da linha
+        const linha = linhaOriginal
+            .replace(/^[\s•\-\*⚪🚚📦🔴🟢🟡⏳⏱️]+/gu, '')
+            .trim();
+
+        if (!linha) return;
+
+        const matchNome = linha.match(/^(?:NOME|MOTORISTA)\s*[:\-]\s*(.+)$/i);
+        if (matchNome) {
+            resultado.nome = matchNome[1].trim();
+            return;
+        }
+
+        const matchRegiao = linha.match(/^(?:REGI[ÃA]O|DESTINO)\s*[:\-]\s*(.+)$/i);
+        if (matchRegiao) {
+            resultado.regiao = matchRegiao[1].trim();
+            return;
+        }
+
+        const matchPlaca = linha.match(/^PLACA\s*[:\-]\s*(.+)$/i);
+        if (matchPlaca) {
+            resultado.placa = matchPlaca[1].trim().toUpperCase();
+            return;
+        }
+
+        const matchChegada = linha.match(/^CHEGADA\s*[:\-]\s*(.+)$/i);
+        if (matchChegada) {
+            resultado.chegada = matchChegada[1].trim();
+            return;
+        }
+
+        const matchEta = linha.match(/^ETA\s*[:\-]\s*(.+)$/i);
+        if (matchEta) {
+            resultado.eta = matchEta[1].trim();
+            return;
+        }
+
+        const matchCpt = linha.match(/^CPT\s*[:\-]\s*(.+)$/i);
+        if (matchCpt) {
+            const valorCpt = matchCpt[1].trim();
+            resultado.cptStr = valorCpt;
+
+            // Tenta converter para YYYY-MM-DDTHH:MM para preencher input datetime-local
+            const hoje = new Date();
+            const anoAtual = hoje.getFullYear();
+
+            // Formato DD/MM/AAAA HH:MM ou DD/MM HH:MM
+            const matchDataHora = valorCpt.match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\s+(\d{1,2}):(\d{2})/);
+            if (matchDataHora) {
+                const dia = matchDataHora[1].padStart(2, '0');
+                const mes = matchDataHora[2].padStart(2, '0');
+                const ano = matchDataHora[3]
+                    ? (matchDataHora[3].length === 2 ? `20${matchDataHora[3]}` : matchDataHora[3])
+                    : String(anoAtual);
+                const hora = matchDataHora[4].padStart(2, '0');
+                const min = matchDataHora[5].padStart(2, '0');
+                resultado.cptDatetime = `${ano}-${mes}-${dia}T${hora}:${min}`;
+                return;
+            }
+
+            // Formato apenas HH:MM (assume data de hoje)
+            const matchSoHora = valorCpt.match(/^(\d{1,2}):(\d{2})$/);
+            if (matchSoHora) {
+                const dia = String(hoje.getDate()).padStart(2, '0');
+                const mes = String(hoje.getMonth() + 1).padStart(2, '0');
+                const hora = matchSoHora[1].padStart(2, '0');
+                const min = matchSoHora[2].padStart(2, '0');
+                resultado.cptDatetime = `${anoAtual}-${mes}-${dia}T${hora}:${min}`;
+            }
+        }
+    });
+
+    return resultado;
+}
+
+function aplicarTextoNosCampos(numero, modo, texto) {
+    const dados = interpretarTextoColado(texto);
+    const prefix = modo === 'edit' ? 'edit' : 'input';
+
+    const nomeEl = document.getElementById(`${prefix}-nome-${numero}`);
+    const regiaoEl = document.getElementById(`${prefix}-regiao-${numero}`);
+    const placaEl = document.getElementById(`${prefix}-placa-${numero}`);
+    const chegadaEl = document.getElementById(`${prefix}-chegada-${numero}`);
+    const etaEl = document.getElementById(`${prefix}-eta-${numero}`);
+    const cptEl = document.getElementById(`${prefix}-cpt-${numero}`);
+
+    if (nomeEl && dados.nome) nomeEl.value = dados.nome;
+    if (regiaoEl && dados.regiao) regiaoEl.value = dados.regiao;
+    if (placaEl && dados.placa) placaEl.value = dados.placa;
+    if (chegadaEl && dados.chegada) chegadaEl.value = dados.chegada;
+    if (etaEl && dados.eta) etaEl.value = dados.eta;
+    if (cptEl && dados.cptDatetime) cptEl.value = dados.cptDatetime;
+}
+
 function gerarHtmlAcoesOcupada(doca) {
     const nome = doca.nome || 'NÃO INFORMADO';
     const regiao = doca.regiao || 'NÃO INFORMADA';
@@ -159,21 +364,33 @@ function gerarHtmlAcoesOcupada(doca) {
     return `
         <div class="dock-ocupada-actions">
             <button type="button" class="btn-action action-btn-release" data-numero="${doca.numero}">Liberar Doca</button>
-            <button
-                type="button"
-                class="btn-share-whatsapp"
-                title="Compartilhar no WhatsApp"
-                aria-label="Compartilhar Doca ${doca.numero} no WhatsApp"
-                data-doca="${doca.numero}"
-                data-nome="${nome}"
-                data-regiao="${regiao}"
-                data-placa="${placa}"
-                data-chegada="${chegada}"
-                data-eta="${eta}"
-                data-cpt="${cpt}"
-            >
-                📤 WhatsApp
-            </button>
+            <div class="dock-bottom-mini-actions">
+                <button
+                    type="button"
+                    class="btn-share-whatsapp"
+                    title="Compartilhar no WhatsApp"
+                    aria-label="Compartilhar Doca ${doca.numero} no WhatsApp"
+                    data-doca="${doca.numero}"
+                    data-nome="${nome}"
+                    data-regiao="${regiao}"
+                    data-placa="${placa}"
+                    data-chegada="${chegada}"
+                    data-eta="${eta}"
+                    data-cpt="${cpt}"
+                >
+                    📤 WhatsApp
+                </button>
+                <button
+                    type="button"
+                    class="btn-paste-data"
+                    title="Colar texto copiado para preencher campos"
+                    aria-label="Colar dados na Doca ${doca.numero}"
+                    data-numero="${doca.numero}"
+                    data-modo="edit"
+                >
+                    📋 Colar
+                </button>
+            </div>
         </div>
     `;
 }
@@ -191,6 +408,11 @@ function abrirFormularioEdicao(numero) {
 
     plateDisplay.innerHTML = `
         <div class="plate-input-group" style="text-align: left;">
+            <div style="display: flex; justify-content: flex-start; margin-bottom: 4px;">
+                <button type="button" class="btn-paste-data" data-numero="${numero}" data-modo="edit" title="Colar texto copiado">
+                    📋 Colar Texto
+                </button>
+            </div>
             <label style="font-size: 0.65rem; color: var(--text-muted);">EDITAR NOME:</label>
             <input type="text" id="edit-nome-${numero}" class="input-plate" value="${nome}" maxlength="100" style="font-size: 0.8rem; padding: 6px;">
             <label style="font-size: 0.65rem; color: var(--text-muted); margin-top: 4px;">EDITAR REGIÃO:</label>
@@ -356,6 +578,11 @@ function atualizarCardNaTela(doca) {
         } else {
             adminControls.innerHTML = `
                 <div class="plate-input-group form-atribuicao" id="form-${doca.numero}" style="display: none; margin-top: 8px;">
+                    <div style="display: flex; justify-content: flex-start; margin-bottom: 4px;">
+                        <button type="button" class="btn-paste-data" data-numero="${doca.numero}" data-modo="input" title="Colar texto copiado">
+                            📋 Colar Texto
+                        </button>
+                    </div>
                     <input type="text" id="input-nome-${doca.numero}" class="input-plate" placeholder="NOME" maxlength="100">
                     <input type="text" id="input-regiao-${doca.numero}" class="input-plate" placeholder="REGIÃO" maxlength="100" style="margin-top: 6px;">
                     <input type="text" id="input-placa-${doca.numero}" class="input-plate" placeholder="PLACA (ABC-1D23)" maxlength="10" style="margin-top: 6px;">
